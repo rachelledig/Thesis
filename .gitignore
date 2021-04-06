@@ -5,3 +5,6 @@
 Plots/*
 data.RData
 datacftfrac.RData
+DataWesternosprey/cft_and_precipdata.csv
+DataWesternosprey/DataFull.csv
+DataWesternosprey/precipdata.csv
