@@ -1,0 +1,80 @@
+---
+title: "Thesis Models"
+author: "Rachel Ledig"
+date: "1/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(brms)
+library(rstan)
+library(dplyr)
+```
+
+```{r}
+#lets sample to see if we can induce some reaction from the model.
+fit1sub <- d %>% subset(year == "2005" & Frac > 0.1) %>% sample_n(1000, na.rm = TRUE)
+# make log version of outcome 
+
+# extract countries with GDP data
+#dd <- d[ complete.cases(d$GDP) , ]
+
+fit1sub$log_gdp <- log( fit1sub$GDP )
+# rescale variables
+#i think i have to standardize the predictor variable.. its all bunched up around 0
+fit1sub$log_gdp_std <- fit1sub$GDP / mean(fit1sub$GDP) 
+
+fit1sub$popdens_std <- fit1sub$popdens / mean(fit1sub$popdens)
+fit1sub$precipmm_std <- fit1sub$precipmm / mean(fit1sub$precipmm)
+fit1sub$fracperc <-fit1sub$Frac *100
+fit1sub$latabs <- abs(fit1sub$lat)/max(abs(fit1sub$lat))
+summary(fit1sub)
+```
+
+```{r}
+fit1 <- brm(data = fit1sub, 
+      family = gaussian,
+      Frac ~  countryname,
+      prior = c(prior(normal(1, 0.2), class = b),
+                prior(exponential(1), class = sigma)),
+      iter = 4000, warmup = 2000, 
+      control = list(adapt_delta = 0.9))
+```
+
+```{r}
+summary(fit1)
+```
+
+```{r}
+mcmc_plot(fit1)
+```
+
+
+
+## Let's keep simplifiying this
+```{r}
+#I need to put an id col in d.... 
+d$id <- as.factor(rep(1:67420, 105))
+
+fit2sub <- d %>% subset(year == "1960" |year == "2005") %>% subset(countryname == "Bangladesh" | countryname == "United_Kingdom")
+
+```
+
+ok we got an id column. lets construct perhaps a varying intercept model. 
+```{r}
+b13.1 <- 
+  brm(data = fit2sub, family = gaussian,
+      Frac ~ 1 + year + (1 + year | countryname),
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b),
+                prior(cauchy(0, 2), class = sd),
+                prior(cauchy(0, 2), class = sigma),
+                prior(lkj(2), class = cor)),
+      iter = 5000, warmup = 2000, chains = 2, cores = 2,
+      seed = 13)
+```
+
