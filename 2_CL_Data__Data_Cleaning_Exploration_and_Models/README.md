@@ -1,6 +1,6 @@
 # Country Level Analysis
 
-Data for for the country level analysis is available [here](https://drive.google.com/drive/folders/1mxzv9UTKVvztToPSmf60EMllEVLEHj9T?usp=sharing) and contains the following files:
+Data for for the country level analysis is available [here](https://drive.google.com/drive/folders/1mxzv9UTKVvztToPSmf60EMllEVLEHj9T?usp=sharing) and contains the following files (with given sources):
 
 
 - Country_tenyear_ha copy.csv - taken from Siebert 2015 [dataset](https://hess.copernicus.org/articles/19/1521/2015/hess-19-1521-2015.html) 
@@ -11,8 +11,11 @@ Data for for the country level analysis is available [here](https://drive.google
 - cft_and_precipdata copy.csv - Provided from PIK's LPJmL output data
 
 Markdowns are ordered to reflect evolution. 
+
 Scripts of interest are:
-  2_CL_Data__Data_Cleaning__generates_AEI  
-  3_CL_Data__Individual_Linear_Country_Fits
-  4_CL_Data__Initial_Zero_Inflated_Fits
+ - 2_CL_Data__Data_Cleaning__generates_AEI  
+ - 3_CL_Data__Individual_Linear_Country_Fits
+ - 4_CL_Data__Initial_Zero_Inflated_Fits
+
+Use the data package above to run them.
   
