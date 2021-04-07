@@ -12,4 +12,7 @@ Data for for the country level analysis is available [here](https://drive.google
 
 Markdowns are ordered to reflect evolution. 
 Scripts of interest are:
+  2_CL_Data__Data_Cleaning__generates_AEI  
+  3_CL_Data__Individual_Linear_Country_Fits
+  4_CL_Data__Initial_Zero_Inflated_Fits
   
