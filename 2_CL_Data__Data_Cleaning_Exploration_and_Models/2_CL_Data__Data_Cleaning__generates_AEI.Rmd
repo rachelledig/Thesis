@@ -206,8 +206,138 @@ iso$country <- as.character(iso$country)
 iso[iso == "Macedonia, FYR"] <- "North Macedonia"
 iso$country <- as.factor(iso$country)
 ```
-Cool, we have multiple regions here that we could use in the future for some multilevel business. Also, latitude and longitude is here, which we can also try later. Obviously these lat and lon measurements will mean nothing for a country like China or the USA, but they are nice to have.  
+Cool, we have multiple regions here that we could use in the future for some multilevel business. Also, latitude and longitude is here, which we can also try later. Obviously these lat and lon measurements will mean nothing for a country like China or the USA, but they are nice to have.    
 
+There are a lot of countries that have no data for the regions, which I will use in further analysis, so put these in there. Its going to be a mess.
+
+```{r}
+
+na_regions <- aei[is.na(aei$four_regions),]
+
+#Aruba
+aei <- aei %>%
+  mutate(four_regions = replace(four_regions, ISO == 'ABW', 'americas'), 
+         six_regions = replace(six_regions, ISO == 'ABW', 'america'), 
+         eight_regions = replace(eight_regions, ISO == 'ABW', 'america_north')) %>%
+#american samoa
+  mutate(four_regions = replace(four_regions,ISO == 'ASM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'ASM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'ASM', 'east_asia_pacific')) %>%
+#bermuda
+  mutate(four_regions = replace(four_regions,ISO == 'BMU', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'BMU', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'BMU', 'america_north')) %>% 
+#cote d'ivoire
+  mutate(four_regions = replace(four_regions,ISO == 'CIV', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'CIV', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'CIV', 'africa_sub_saharan')) %>% 
+#democratic republic of congo
+  mutate(four_regions = replace(four_regions,ISO == 'COD', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'COD', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'COD', 'africa_sub_saharan')) %>% 
+#republic of congo
+  mutate(four_regions = replace(four_regions,ISO == 'COG', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'COG', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'COG', 'africa_sub_saharan')) %>% 
+#cayman islands
+  mutate(four_regions = replace(four_regions,ISO == 'CYM', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'CYM', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'CYM', 'america_north')) %>%
+#Faroe islands
+  mutate(four_regions = replace(four_regions,ISO == 'FRO', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'FRO', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'FRO', 'europe_west')) %>%
+#micronesia
+  mutate(four_regions = replace(four_regions,ISO == 'FSM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'FSM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'FSM', 'east_asia_pacific')) %>%
+#gibraltar
+  mutate(four_regions = replace(four_regions,ISO == 'GIB', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'GIB', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'GIB', 'europe_west')) %>%
+#Guadeloupe
+  mutate(four_regions = replace(four_regions,ISO == 'GLP', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'GLP', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'GLP', 'america_north')) %>%
+#greenland
+  mutate(four_regions = replace(four_regions,ISO == 'GRL', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'GRL', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'GRL', 'europe_west')) %>%
+#french Guiana 
+  mutate(four_regions = replace(four_regions,ISO == 'GUF', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'GUF', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'GUF', 'america_south')) %>%
+#guam
+  mutate(four_regions = replace(four_regions,ISO == 'GUM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'GUM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'GUM', 'east_asia_pacific')) %>%
+#Kyrgyzstan
+  mutate(four_regions = replace(four_regions,ISO == 'KGZ', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'KGZ', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'KGZ', 'asia_west')) %>%
+#laos
+  mutate(four_regions = replace(four_regions,ISO == 'LAO', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'LAO', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'LAO', 'east_asia_pacific')) %>%
+#Macedonia
+  mutate(four_regions = replace(four_regions,ISO == 'MKD', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'MKD', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'MKD', 'europe_east')) %>%
+#Martinique 
+  mutate(four_regions = replace(four_regions,ISO == 'MTQ', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'MTQ', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'MTQ', 'america_north')) %>%
+#new caledonia
+  mutate(four_regions = replace(four_regions,ISO == 'NCL', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'NCL', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'NCL', 'east_asia_pacific')) %>%
+#puerto rico
+ mutate(four_regions = replace(four_regions,ISO == 'PRI', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'PRI', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'PRI', 'america_north')) %>%
+#Palestine (West Bank + Gaza strip)
+ mutate(four_regions = replace(four_regions,ISO == 'PSE', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'PSE', 'middle_east_north_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'PSE', 'asia_west')) %>%
+#french Polynesia
+  mutate(four_regions = replace(four_regions,ISO == 'PYF', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'PYF', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'PYF', 'east_asia_pacific')) %>%
+#Reunion
+  mutate(four_regions = replace(four_regions,ISO == 'REU', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'REU', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'REU', 'africa_sub_saharan')) %>%
+#Serbia, Montenegro, Kosovo
+  mutate(four_regions = replace(four_regions,ISO == 'SMK', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'SMK', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'SMK', 'europe_east')) %>%
+#Slovakia
+  mutate(four_regions = replace(four_regions,ISO == 'SVK', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'SVK', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'SVK', 'europe_east')) %>%
+#Turks and Caicos Islands
+  mutate(four_regions = replace(four_regions,ISO == 'TCA', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'TCA', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'TCA', 'america_north')) %>%
+#East Timor
+  mutate(four_regions = replace(four_regions,ISO == 'TLS', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'TLS', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'TLS', 'east_asia_pacific')) %>%
+#taiwan
+  mutate(four_regions = replace(four_regions,ISO == 'TWN', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'TWN', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'TWN', 'east_asia_pacific')) %>%
+#British virgin Islands
+  mutate(four_regions = replace(four_regions,ISO == 'VGB', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'VGB', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'VGB', 'america_north')) %>%
+#US Virgin Islands
+  mutate(four_regions = replace(four_regions,ISO == 'VIR', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'VIR', 'america'), 
+         eight_regions = replace(eight_regions, ISO == 'VIR', 'america_north')) 
+
+```
+Next time I'll write a function.
 
 ### Income
 
@@ -477,15 +607,16 @@ hist(aei$rugged_sc, breaks = 100)
 Ok, so lets peek at how things change over time. Here is a graph of percentage of country area equipped for irrigation from 1960 - 2005.
 
 ```{r Irrigated Totals Graph, warning=FALSE}
-pirrfrac <- plot_ly(aei, x = ~yearcount, y = ~irrperc, group =  ~country, color = ~four_regions, 
-                    type = 'scatter', mode = 'lines', 
-                    text = ~paste("Country :", country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-pirrfrac <- pirrfrac %>% layout(autosize = F, height = 500, width = 1000) 
-pirrfrac <- pirrfrac %>% layout(title = 'Total Irrigation Percentage per Country',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-pirrfrac
+
+pirrfrac <-
+  ggplot(data = subset(aei, !is.na(irrperc)), 
+         mapping = aes(x=year, y= irrperc, group = country, color = eight_regions)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+ggplotly()
+
+
 ```
 Although this graph has a lot of countries and can get quite messy, some general trends appear. Asian countries seem to have high percentages of irrigated area per total land area (irrigation percentage). Then seemingly followed by European countries. Africa and Oceania do not seem to be irrigated as much. Be aware that you can these graphs are interactive, you may zoom, pan or click on the legend to isolate the regions. Although, a regional breakdown follows, just need to add some predictor variables first. Hang tight.
 
