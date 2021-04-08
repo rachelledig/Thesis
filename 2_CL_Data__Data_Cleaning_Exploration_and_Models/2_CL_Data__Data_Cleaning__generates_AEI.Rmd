@@ -1,8 +1,9 @@
 ---
-title: "R Notebook"
+title: "2 Country Level Data Cleaning"
 output: 
   html_notebook:
     toc: yes
+    toc_float: yes
 ---
 
 ```{r Housekeeping, warning=FALSE, message=FALSE, include=FALSE}
@@ -160,7 +161,7 @@ According to the FAO, the choice of which irrigation, and by proxy whether to ir
   
 - Topographical   
 
-  - $Ru_c$ - Represented here using the "rugged" data set from rethinking. This data was taken from Riley et al. 1999. 
+  - $Ru_c$ - Represented here using the "rugged" data set from rethinking, in which a coeff of ruggedness for each country was assigned. This data was taken from Riley et al. 1999. 
   
 - Soil Type  
 
@@ -168,8 +169,10 @@ According to the FAO, the choice of which irrigation, and by proxy whether to ir
 
 - Water Supply    
 
-  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In mm/country/year
-- Crop Type   
+  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In mm/country/year  
+- Crop Type  
+
+  - Fraction of each crop grown per country -  Translated output from LPJmL. Individual crop fraction per grid cell multiplied by respective grid cell area, summed on a country level giving ha of each crop grown per country. This was then divided by total area of the country to achieve the % area occupied by a certain crop per country. Still working out how to work with this predictor. 
 
 - Social Influences  
 
@@ -672,7 +675,7 @@ In the Americas, the % of area irrigated by countries is lower than Asia or Euro
   
 #### East Asia and Oceania
 
-```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+```{r East Asia and Oceania Irrigated Totals Graph, echo=FALSE, warning=FALSE}
 ggplot(data = subset(aei, six_regions == "east_asia_pacific"), 
          mapping = aes(x=year, y= irrperc, color = country)) +
   geom_line() +
@@ -688,7 +691,7 @@ The East Asian countries are really high in % of irrigated area. The four countr
 Oceania, due to its large amount of islands, does not have a lot of irrigation, majority of countries have 0% irrigation. New Zealand (around 2%) and Australia (less than 1%) have some irrigation. Although this could have a multitude of reasons why irrigation is so low here, regardless of the fact that Australia and New Zealand are very populous countries with mouths to feed. Australia is very large and perhaps its enormity cancels out the irrigated land it does have. 
   
 #### South Asia
-```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+```{r South Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
 ggplot(data = subset(aei, six_regions == "south_asia"), 
          mapping = aes(x=year, y= irrperc, color = country)) +
   geom_line() +
@@ -702,7 +705,7 @@ Very few countries here, countries in this area are large. Very high levels of i
 
 
 #### Middle East and North Africa
-```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+```{r Middle East and North Africa Irrigated Totals Graph, echo=FALSE, warning=FALSE}
 ggplot(data = subset(aei, six_regions == "middle_east_north_africa"), 
          mapping = aes(x=year, y= irrperc, color = country)) +
   geom_line() +
