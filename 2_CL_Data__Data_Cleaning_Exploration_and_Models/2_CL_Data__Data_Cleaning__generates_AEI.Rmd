@@ -614,6 +614,8 @@ pirrfrac <-
   geom_line() +
   scale_x_continuous() +
   theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
 ggplotly()
 
 
@@ -623,86 +625,94 @@ Although this graph has a lot of countries and can get quite messy, some general
 
 ### Regional Breakdown of % of Area Irrigated  
 
-#### Africa
+#### Sub-Saharan Africa
   
 ```{r Africa Irrigated Totals Graph, echo=FALSE, warning=FALSE}
-pirafrica <- plot_ly(subset(aei, six_regions == "sub_saharan_africa" ), x = ~yearcount, y = ~irrperc, color = ~country, 
-                    mode = 'lines+markers', 
-                    text = ~paste("Country :", country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-pirafrica <- pirafrica %>% layout(autosize = F, height = 500, width = 1000) 
-pirafrica <- pirafrica %>% layout(title = 'Total Irrigation Fraction per African Countries',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-pirafrica
+ggplot(data = subset(aei, six_regions == "sub_saharan_africa"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
 ```
   
-In general, Africa has low levels of irrigated area. Swaziland, Morocco and Egypt lead with around 2.5-3% of total area being irrigated. However, as with all of the data for irrigated area, many countries have volatile curves that peak and fall repeatedly over the course of the last century. Here Morocco and Tunisia stand out.  
+In general, Africa has low levels of irrigated area. Swaziland, Sao Tome and Principe and Mauritius lead here with majority of others falling below the levels of these countries.
 
-#### Europe
+#### Europe and Centrtal Asia
   
 ```{r Europe Irrigated Totals Graph, echo=FALSE, warning=FALSE}
-pireuro <- plot_ly(subset(aei, six_regions == "europe_central_asia" ), x = ~year, y = ~irrfrac, color = ~Country, 
-                    type = 'scatter', mode = 'lines', 
-                    text = ~paste("Country :", Country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-pireuro <- pireuro %>% layout(autosize = F, height = 500, width = 1000) 
-pireuro <- pireuro %>% layout(title = 'Total Irrigation Fraction per European Countries',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-pireuro
+ggplot(data = subset(aei, six_regions == "europe_central_asia"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
 ```
   
-Europe contains some countries that reach higher percentages of irrigated area. Countries such as the Netherlands, Romania and Bulgaria have reached peaks in the past (roughly 10-15% irrigated area) but were in a decline towards the end our my study period. Other countries such as Italy and Portugal have had more stable rises with less down turn toward. Unexpectedly, Russia has a very low percentage of irrigated area, however at this point, the assumption is that either Russia's enormous size cancels out its irrigated area, or that Russia receives enough precipitation for the crops it grows that irrigation is not necessary. Further analysis should reveal this.  
+Europe contains some countries that reach higher percentages of irrigated area. Countries such as the Netherlands, Romania, Albania, and Azerbaijan have reached peaks in the past (roughly 10-15% irrigated area) but were in a decline towards the end our my study period. Other countries such as Italy and Portugal have had more stable rises with less down turn toward. Unexpectedly, Russia has a very low percentage of irrigated area, however at this point, the assumption is that either Russia's enormous size cancels out its irrigated area, or that Russia receives enough precipitation for the crops it grows that irrigation is not necessary. Further analysis should reveal this.  
 
 #### Americas
 
 ```{r Americas Irrigated Totals Graph, echo=FALSE, warning=FALSE}
-piramerica <- plot_ly(subset(aei, six_regions == "america" ), x = ~year, y = ~irrfrac, color = ~Country, 
-                    type = 'scatter', mode = 'lines', 
-                    text = ~paste("Country :", Country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-piramerica <- piramerica %>% layout(autosize = F, height = 500, width = 1000) 
-piramerica <- piramerica %>% layout(title = 'Total Irrigation Fraction per American Countries',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-piramerica
+ggplot(data = subset(aei, six_regions == "america"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
 ```
   
-In the Americas, the % of area irrigated by countries is lower than Asia or Europe. Peaks here are Cuba and the Dominican Republic at around roughly 3-4% of their total countries being irrigated. These peak countries are cluttered around the equator, and although this is interesting it is not indicative of anything at the moment. The general trends of irrigation increase seem to be upward with perhaps a slight leveling off toward the end of the study period (for some countries) but lacking the distinct downturn that is seen in Europe.   
+In the Americas, the % of area irrigated by countries is lower than Asia or Europe. Peaks here are Cuba and the Dominican Republic at around roughly 6-8% of their total countries being irrigated. There are some islands (Barbados and St. Lucia) that have sharp increases in irrigation fraction, but this could be because they are islands and any irrigaion at all would induce the ration of irrigated land to total land spike. Counrties that have experienced a steady increase, but are not the leaders in overall irrigaiton fraction are countries that are big and produce a lot of produce (USA, Mexico, Chile) The general trends of irrigation increase seem to be upward with perhaps a slight leveling off toward the end of the study period (for some countries) but lacking the distinct downturn that is seen in Europe.   
   
-#### Asia
+#### East Asia and Oceania
 
 ```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
-pirasia <- plot_ly(subset(aei, region == "Asia" ), x = ~year, y = ~irrfrac, color = ~Country, 
-                    type = 'scatter', mode = 'lines', 
-                    text = ~paste("Country :", Country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-pirasia <- pirasia %>% layout(autosize = F, height = 500, width = 1000) 
-pirasia <- pirasia %>% layout(title = 'Total Irrigation Fraction per Asian Countries',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-pirasia
+ggplot(data = subset(aei, six_regions == "east_asia_pacific"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
 ```
   
-The Asian countries are really high in % of irrigated area. The four countries that reach upwards of (roughly) 15% or more of their total area irrigated toward the end of the study period are Bangladesh, India, Pakistan, and Azerbaijan, with Bangladesh reaching almost 30%. Some countries have interesting and volatile trajectories however. For example, seems to have 10 year cycles that peak and fall repeatdly toward the end of the study period.  
-  
-  
-#### Oceania 
+The East Asian countries are really high in % of irrigated area. The four countries that reach upwards of (roughly) 10% or more of their total area irrigated toward the end of the study period are Vietnam, North Korea, South Korea, and Thailand. Other countries that have high irrfracs are China, Japan and the Philipines. It is expected that irrigaion fraction would be high here due to the amount of rice produced. 
 
-```{r Oceania Irrigated Totals Graph, echo=FALSE, warning=FALSE}
-pirocean <- plot_ly(subset(aei, region == "Oceania" ), x = ~year, y = ~irrfrac, color = ~Country, 
-                    type = 'scatter', mode = 'lines', 
-                    text = ~paste("Country :", Country,"<br> Fraction :", irrfrac,  "<br> Year :", year),
-                    textposition = "auto", hoverinfo = "text")
-pirocean <- pirocean %>% layout(autosize = F, height = 500, width = 1000) 
-pirocean <- pirocean %>% layout(title = 'Total Irrigation Fraction per Oceanian Countries',
-         xaxis = list(title = 'Year'),
-         yaxis = list(title = '% Irrigated Land of Total Area'))
-pirocean
+Oceania, due to its large amount of islands, does not have a lot of irrigation, majority of countries have 0% irrigation. New Zealand (around 2%) and Australia (less than 1%) have some irrigation. Although this could have a multitude of reasons why irrigation is so low here, regardless of the fact that Australia and New Zealand are very populous countries with mouths to feed. Australia is very large and perhaps its enormity cancels out the irrigated land it does have. 
+  
+#### South Asia
+```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+ggplot(data = subset(aei, six_regions == "south_asia"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
 ```
-  
-Oceania, due to its large amount of islands, does not have a lot of irrigation, majority of countries have 0% irrigation. New Zealand and Australia have some irrigation, with percentage of irrigated area at their peaks to be somewhere around 0.4% and 1.6%, respectively. Although this could have a multitude of reasons why irrigation is so low here, regardless of the fact that Australia and New Zealand are very populous countries with mouths to feed. Australia is very large and perhaps its enormity cancels out the irrigated land it does have.   
+Very few countries here, countries in this area are large. Very high levels of irrigation here coming from most countries. Bangladesh, Pakistan, and India are heavily irrigated compared to their land area. 
 
+
+#### Middle East and North Africa
+```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+ggplot(data = subset(aei, six_regions == "middle_east_north_africa"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesnt work.
+ggplotly()
+```
+
+Irrigation is also prevalent here (but not as much as in south asia). These countries are dry and therefore would need irrigation to have domestic food suplies. Lebanon, Iraq and Israel lead here. Oil producing countries have little irrigation, they are dry and their gdp is high, perhaps importation is the easiest option for them?
 *** 
 

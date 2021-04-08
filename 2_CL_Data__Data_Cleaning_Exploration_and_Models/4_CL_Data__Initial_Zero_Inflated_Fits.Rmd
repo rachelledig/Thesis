@@ -16,9 +16,9 @@ library(ggplot2)
 
 Jumping in to the zero inflated models. Some helpful stuff here has been [_How to analyze visual analog (slider) scale data?_](https://mvuorre.github.io/posts/2019-02-18-analyze-analog-scale-ratings-with-zero-one-inflated-beta-models/) by Matti Vuorre. 
 
-Following what he has done, specify a `bf()`. Here we are using regions as the grouping factor, just to get things going. I've specified no priors here. Getting things running is the goal here. 
+Following what he has done, specify a `bf()`. Here we are using regions as the grouping factor, just to get things going. I've specified no priors here. Getting things running is the goal here. There is no time series component here, ignoring this for now. 
 ```{r 8 region ZIB}
-zi_bf1 <- 
+zi_eight_regions_bf <- 
   bf(
   irrfrac ~ eight_regions,
   phi ~ eight_regions,
@@ -26,28 +26,44 @@ zi_bf1 <-
   family = zero_inflated_beta()
 )
 
-zi1 <- brm(
-  formula = zi_bf1,
+zi_eight_regions <- 
+  brm(
+  formula = zi_eight_regions_bf,
   data = aei,
   cores = 4,
   seed = 17,
-  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/zi_1"
+  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zero_inflated_eight_regions"
 )
 
-print(zi1)
+print(zi_eight_regions)
 ```
 
-This took about an hour to run and `There were 1053 transitions after warmup that exceeded the maximum treedepth`. LaLala.... Deal with this later. 
+This took about an hour to run. But rhats converged. 
 
 ```{r}
-mcmc_plot(zi1, type = "neff")
+mcmc_plot(zi_eight_regions, pars = c("b_phi_Intercept", 
+                        "b_phi_eight_regionsafrica_sub_saharan",
+                        "b_phi_eight_regionsamerica_north",
+                        "b_phi_eight_regionsasia_west",
+                        "b_phi_eight_regionseast_asia_pacific",
+                        "b_phi_eight_regionseurope_east", 
+                        "b_phi_eight_regionseurope_west"), 
+          type = "dens")
 ```
+
+```{r}
+mcmc_plot(zi_eight_regions, pars = "b_zi_", type = "dens")
+```
+```{r}
+mcmc_plot(zi_eight_regions, pars = "b_phi_", type = "dens")
+```
+Alright. Need to work out a bit of what is being communicated here. Majority of these plots seem similarly wide. Some of the Zi paramaters seem bounded by zero on either the top or the bottom end. Perhaps I am having a hard time with these because I have not transformed them in to the response scale. Let's do that now. 
 
 
 All of the summary output is transformed via the logit ($\mu, zi$) or log ($\phi$) link. We need to transform them in to the response scale, use `exp` to transform $\phi$ and `plogis` for $\mu$ and $zi$ to be able to interpret them better. I am assuming that all parameters that are $\phi$ related have the same  log link and need to be transformed via `exp` and others need`plogis` as they use the logit link. Is this a fair assumption?
 
 ```{r}
-posterior_samples(zi1, pars = "b_")[,1:24] %>% 
+posterior_samples(zi_eight_regions, pars = "b_")[,1:24] %>% 
   #the old fashioned way, brute force.
   mutate_at(c("b_phi_Intercept", "b_phi_eight_regionsafrica_sub_saharan", 
               "b_phi_eight_regionsamerica_north", 
@@ -68,46 +84,64 @@ posterior_samples(zi1, pars = "b_")[,1:24] %>%
   rownames_to_column("Parameter") %>% 
   kable(digits = 2) 
 ```
-Again, one region is encapsulated by the population level Intercept, zi_intercept, and phi_intercept. 
+Alright, again, need to look in to what this output means. One region (north africa) is encapsulated by the population level Intercept, zi_intercept, and phi_intercept. The phi_intercept is huge here, 44.95, but is similar to others as the difference between the intercept and the groups is captured by the specific "b_phi" value. 
+
+Here "b_zi" is a measure of the proportions of zeros present in the data set, as it is just a bernoulli distrobution? Is this correct? and How could it be that for europe west and east asia pacific that the probability of a country having an irrigation value of 0 is 1? Is this a correct interpretation?
 
 ```{r}
-plot(
-  conditional_effects(zi1, dpar = "mu"), 
-  points = TRUE, 
-  point_args = list(width = .05, shape = 1)
-)
+conditional_effects(zi_eight_regions, dpar = "mu")
 ```
+Ok so this is the spread of mu, the average for the response, or the proportion of irrigated land per country? Has this been transformed by the logit link as mentioned above? However, these don't seem to be too off in a conceptual sense. Sub-saharan Africa and south America have lower rates of irrigation than northern africa (its dry?) and north america. Highest rates of irrigaion are found in west asia, which also makes a sense, as these areas are usually fertile and dry, hence the need for irrigation. Then europe, east and west, along with east asia have expectedly high rates of irrigation. 
 
+Some things to remember here though: each of these groups have a different number of countries that conclusions are being based off. (Ignore the NAs, they have zero irrigation fraction as per the Siebert Data).
+```{r}
+aei %>% 
+  group_by(eight_regions) %>% 
+  count()
+```
+So yeah, here Sub Saharan Africa has 352 samples as where South America has 96. Countries' sizes vary and regions are not equally divided by a certain number of countries. 
+
+quick posterior check!
+```{r}
+pp_check(zi_eight_regions)
+```
+ahh this makes me so happy, as it looks so much better than the gaussian models I had been messing around with earlier.
+
+***
+
+I try this with 4 regions, just to keep practicing. 
 
 ```{r}
-zi_bf2 <- 
+zi_four_regions_bf <- 
   bf(
   irrfrac ~ four_regions,
   phi ~ four_regions,
   zi ~ four_regions,
-  family = zero_inflated_beta()
+  family = zero_inflated_beta() 
+  
 )
 ```
 
 
 Now run a model.
 ```{r}
-zi2 <- brm(
-  formula = zi_bf2,
+zi_four_regions <- 
+  brm(
+  formula = zi_four_regions_bf,
   data = aei,
   cores = 4,
   seed = 17,
   control = list(adapt_delta = 0.99), #see if this decreases divergent trans
-  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/zi_2"
+  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zero_inflated_four_regions"
 )
 ```
 ```{r}
-print(zi2)
+print(zi_four_regions)
 ```
 
 
 ```{r}
-posterior_samples(zi2, pars = "b_")[,1:12] %>% 
+posterior_samples(zi_four_regions, pars = "b_")[,1:12] %>% 
   #the old fashioned way, brute force.
   mutate_at(c("b_phi_Intercept", "b_phi_four_regionsamericas", 
               "b_phi_four_regionsasia", 
@@ -121,16 +155,11 @@ posterior_samples(zi2, pars = "b_")[,1:12] %>%
   kable(digits = 2) 
 
 ```
+Yeah, ok. Similar stuff here as the previous analysis. The dispersion coeffs are still extremely large. Some the zi coeffs have come down from one
+```{r}
+conditional_effects(zi_four_regions, dpar = "mu")
+```
+```{r}
+pp_check(zi_four_regions)
+```
 
-```{r}
-plot(
-  conditional_effects(zi2, dpar = "mu"), 
-  points = TRUE, 
-  point_args = list(width = .05, shape = 1)
-)
-```
-```{r}
-pp_check(zi1)
-pp_check(zi2)
-```
-Loooovvvveee it. Look at that!
