@@ -8,7 +8,7 @@ Data for for the country level analysis is available [here](https://drive.google
 - country_area copy.csv - taken from [Worldband](https://data.worldbank.org/indicator/AG.LND.TOTL.K2)
 - Gapminder_population_total copy.csv - taken from [Gapminder](https://www.gapminder.org/data/documentation/gd003/)
 - Gapminder_income_per_person_gdppercapita_ppp_inflation_adjusted copy.csv - in 2011 USD, taken from [Gapminder](https://www.gapminder.org/data/documentation/gd001/)
-- cft_and_precipdata copy.csv - Provided from PIK's LPJmL output data
+- cft_and_precipdata copy.csv - Provided from PIK's LPJmL output data, contains precipitation and cft fractions for gridded globe data for 1900-2005
 
 Markdowns are ordered to reflect evolution. 
 
