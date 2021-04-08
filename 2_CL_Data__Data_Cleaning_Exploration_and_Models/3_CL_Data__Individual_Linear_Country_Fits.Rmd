@@ -1,8 +1,10 @@
 ---
 title: "Beginning Country Level Models and Individual Country Linear Fits"
 output: 
-  html_notebook:
-    toc: yes
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
 
 ---
 
@@ -33,6 +35,14 @@ library(knitr)
 ## Fitting Individual Countries Time Series Trajectories
 
 Lets do some stuff from Solomon Kurz's other bookdown, [_Applied Longitudinal Data Analysis in brms and the tidyverse_](https://bookdown.org/content/4253/exploring-longitudinal-data-on-change.html), to see if we can visualize our target variable a bit better. I'm also using some techniques from Hadley Wickham's nice youtube video, [_Managing many models with R_](https://www.youtube.com/watch?v=rz3_FDVt9eg&t=802s). 
+
+```{r}
+#read the file, if you dont have it from the previous markdown. 
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
+```
+
+
+
 ```{r Nesting for First Mods}
 by_ISO <-
   aei %>%
@@ -87,7 +97,7 @@ fit1 <-
       seed = 17,
       file = "/Volumes/RachelExternal/Thesis/Thesis/fits/fit1")
 
-print(fit1.1, digits = 4)
+print(fit1, digits = 4)
 
 ```
 Yeo looks fine here! Check these priors, just to see that brms is putting them in the right place...
@@ -97,12 +107,13 @@ prior_summary(fit1)
 Yep, all good.   
 
 Now for the first part of the master plan, apply this to all countries, resulting in individual country trajectories, individual slopes and intercepts, but calculated only with the 8 data points for each country. Use `map` here to apply this to every ISO. 
-```{r Map fit for all countries}
+```{r Map fit for all countries, warning=FALSE, message=FALSE}
 models <- 
   by_ISO %>%
-  mutate(model = map(data, ~update(fit1, newdata = ., seed = 2)))
+  mutate(model = map(data, ~update(fit1, newdata = ., seed = 2, file = "/Volumes/RachelExternal/Thesis/Thesis/fits/countrylevel_linear_fits" )))
 ```
 This runs, and for some of the models it yells that things didn't converge.. and I'm just going to leave it, as this is not really the most importatnt part.
+
 ### Calculation of Mean Structure
 
 Again, using the code suggested form S. Kurz, the intercept/intercept standard deviation and the rate of change/rate of change sd can be extracted from the estimates and coeffs. 
