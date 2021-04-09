@@ -27,6 +27,29 @@ library(distill)
 ```
 
 
+Here is the data necessary for this script:
+```{r}
+#original Siebert Data
+AEI <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Data/SiebertData/HID_v10/Country_tenyear_ha.csv")
+#import the data set with total country area, this comes from the Worldbank
+countryarea <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Data/LandArea/LandArea.csv")
+#the ISO codes and regional data from Gapminder
+iso <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/GAPminder_ISOcodes.csv")
+#income here is 2011 usd, taken from Gapminder
+income <- read.csv(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_income_per_person_gdppercapita_ppp_inflation_adjusted.csv")
+#population data also taken from Gapminder
+population <- read.csv(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_population_total.csv")
+#cftandprecip is a script with all the grid cell values, from LPJmL output 
+cftandprecip <- read.csv(
+  '/Volumes/RachelExternal/Thesis/Thesis/Data/cft_and_precipdata.csv')
+```
+
+
 
 Lets do a short introduction to what we're working with here. 
 
@@ -34,8 +57,6 @@ Lets do a short introduction to what we're working with here.
   
 * $I$ - Irrigation Percentage - Downloaded the data from @siebertGlobalDataSet2015 data set in ha/country/timestep, then by dividing by the countries total area, the fraction of total land area that is irrigated in a given country is created. 
 ```{r Setting up Country Level df, warning=FALSE}
-#original Siebert Data
-aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data/SiebertData/HID_v10/Country_tenyear_ha.csv")
 aei <- as.data.frame(aei)
 
 #rename the cols so that I can use them as number
@@ -65,9 +86,6 @@ str(aei)
 Added to this to be able to calculate the % of land irrigated per country we need the country area. This data is taken from Worldbank.  
 
 ```{r message=FALSE, warning=FALSE}
-#import the data set with total country area, this comes from the Worldbank
-countryarea <- read.csv2("/Volumes/RachelExternal/Thesis/Data/LandArea/LandArea.csv")
-
 #removing extra cols
 countryarea <- countryarea[-c(265:270), ]
 countryarea <- countryarea[, -c(1, 3:4)]
@@ -181,8 +199,7 @@ All variables will be scaled or centered.
 First, the ISO codes and Regions to be able to hold some structure.  
 
 ```{r}
-#the ISO codes and regional data from Gapminder
-iso <- read.csv2("/Volumes/RachelExternal/Thesis/Thesis/Data/GAPminder_ISOcodes.csv")
+
 iso <- iso[, -c(2,7,10,12,13)] #removing extra info
 
 #renaming some cols
@@ -214,8 +231,7 @@ Cool, we have multiple regions here that we could use in the future for some mul
 Income data is coming from Gapminder, as they have put real effort in to filling all the gaps in income and population for the last 150 years. Income is in terms of the 2011 USD and is inflation adjusted.  
 
 ```{r}
-#income here is 2011 usd 
-income <- read.csv("/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_income_per_person_gdppercapita_ppp_inflation_adjusted.csv")
+
 income <- income[, c(1, 162:207)] #removing extra years
 
 #making long data
@@ -254,9 +270,6 @@ Logging and standardizing is necessary here. Again, the argument is that wealth 
 Population data is also taken from Gapminder. The same process of logging and standardizing will be carried out here. 
 
 ```{r}
-#population data also taken from Gapminder
-population <- read.csv("/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_population_total.csv")
-
 #removing extra years
 population <- population[, c(1, 162:207)] 
 #making longer data
@@ -531,8 +544,6 @@ The countries that don't have income also don't have population, so as least I a
 Again, precipitation is translated output from LPJmL. Precipitation was chosen because it could be summed across countries, as other data could not (like discharge or ET). I have summed the precipitation by country and year. I am not sure whether I should scale or standardize precip, I will do all the possible combinations at the moment. 
 ```{r Precip Manipulation, message=FALSE, warning=FALSE}
 #precipitation
-#cftandprecip is a script with all the grid cell values. 
-cftandprecip <- read.csv('/Volumes/RachelExternal/Thesis/Thesis/Data/cft_and_precipdata.csv')
 cftandprecip$ISO <- as.factor(cftandprecip$ISO)
 cftandprecip <- cftandprecip[, -c(1)] #remove id col
 cftandprecip <- subset(cftandprecip, year >= 1960)
