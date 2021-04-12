@@ -30,9 +30,7 @@ library(knitr)
 ```
 
 
-# Beginning the Models
-
-## Fitting Individual Countries Time Series Trajectories
+# Fitting Individual Countries Time Series Trajectories
 
 Lets do some stuff from Solomon Kurz's other bookdown, [_Applied Longitudinal Data Analysis in brms and the tidyverse_](https://bookdown.org/content/4253/exploring-longitudinal-data-on-change.html), to see if we can visualize our target variable a bit better. I'm also using some techniques from Hadley Wickham's nice youtube video, [_Managing many models with R_](https://www.youtube.com/watch?v=rz3_FDVt9eg&t=802s). 
 
@@ -41,7 +39,7 @@ Lets do some stuff from Solomon Kurz's other bookdown, [_Applied Longitudinal Da
 aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
 ```
 
-
+## With Priors
 
 ```{r Nesting for First Mods}
 by_ISO <-
@@ -85,7 +83,7 @@ irrperc_c &\sim N(\mu_c, \sigma_c)  \\
 $$
 
 I won't use the first country, as we have 0 for the irrigation percent. AFG is the second country, and there is some evolution. 
-```{r First Model, message=FALSE, warning=FALSE}
+```{r First Model, message=FALSE, warning=FALSE, echo=TRUE, results='hide'}
 AFG_norm_yearcount <-
   brm(data = by_ISO$data[[2]], #AFG
       formula = irrperc ~ yearcount,
@@ -96,7 +94,6 @@ AFG_norm_yearcount <-
       iter = 4000, chains = 4, cores = 4,
       seed = 17,
       file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Fits/AFG_norm_d_yearcount")
-
 
 ```
 Yep looks fine here! Check these posterior and the priors, just to see that brms is putting them in the right place...
@@ -153,7 +150,7 @@ r2 <-
   select(ISO, r2)
 
 ```
-## Country Level Fits
+### Fit
 ```{r Table, message=FALSE, warning=FALSE}
 table <-
   models %>% 
@@ -173,7 +170,7 @@ table %>%
 ```
 
 
-### Plotting Country Evolution as a Function of Time
+### Plotting 
 ```{r Plotting CL irrfrac vs time}
 abline <- 
   by_ISO %>% 
@@ -197,7 +194,10 @@ Some of these countries don't have fantastic fits. ALB, BGD, BGR, BRB, CUB, DNK,
 
 ***
 
+## Using No Priors
+
 What if I do this again with no priors... and see if it fits better for the countries with more extreme increases in irrigated area over time. Ive run the same setup as above with the calculation of the mean, variance and bayesian $R^2$. Below I've graphed the fits for the problem countries (ALB, BGD, BGR, BRB, CUB, DNK, IND, NLD, PAK, ROU).
+### The No Prior Model
 ```{r No Prior Fit, message=FALSE, warning=FALSE, echo = T, results = 'hide'}
 AFG_norm_nopri_d_yearcount <-
   brm(data = by_ISO$data[[2]],
@@ -214,9 +214,8 @@ models_noprior <-
 ```
 
 
-
+### Calculation of Statistics
 ```{r message=FALSE, warning=FALSE}
-
 mean_structure_noprior <-
   models_noprior %>% 
   mutate(coefs = map(model, ~ posterior_summary(.)[1:2, 1:2] %>% 
@@ -247,9 +246,10 @@ r2_noprior <-
   mutate(r2 = map_dbl(model, ~ bayes_R2(., robust = T)[1])) %>% 
   mutate_if(is.double, round, digits = 2) %>% 
   select(ISO, r2)
+```
 
-
-
+### Plotting
+```{r message=FALSE, warning=FALSE}
 abline_noprior <- 
   by_ISO %>% 
   subset(., c(ISO == "ALB"| ISO == "BGD"|ISO ==  "BGR"| ISO == "BRB"|
@@ -278,12 +278,15 @@ abline_noprior <-
 
 
 ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline_noprior.png", abline_noprior, dpi = 300 )
-
 ```
+
+
 
 ![Individual Country Fits with no priors specified](/Volumes/RachelExternal/Thesis/Thesis/Plots/abline_noprior.png)
 
 Whoa, ok so these countries are fit way way better. This makes sense though, because if the model is being refit for each country then the priors can fluctuate much more. in the first run, I limited the priors to a pretty narrow slope that wasn't helpful for countries that have expansion trajectories that increase quicker than the range I specified in the prior. If brms is behaving like I expect it to behave, its fitting a uniform prior for the slope and a student t distribution for the intercept, FOR EACH COUNTRY. I could go back and weaken the priors chosen for fit1 but what I'm doing here is not that important.   
+
+## Prior vs. No Prior Fits 
 
 Lets check the table, first the problem countries fit without a prior. 
 ```{r Problem Countries No Prior Table, echo=FALSE}
@@ -334,7 +337,7 @@ Yeah for all of these countries the fit has been improved, by visual inspection 
 
 We can check out the data using `ggpairs()`. What I am really looking for is the relationship with irrperc. 
 
-
+## The Basics
 ```{r message=FALSE, warning=FALSE}
 #includes log_income_std, log_pop_std, precip_sc, rugged_sc
 aei %>% 
@@ -442,7 +445,7 @@ aei %>%
 ```
 
 
-#### Beginning to Model
+# Early Gaussian Models
 
 Ok lets specify something and see if we can get it to run. Well use irrperc as we haven't moved into zero inflated land. This is gaussian with no priors. Gaussian is not gonna work with this. But... let's see. 
 ```{r}
