@@ -30,7 +30,7 @@ library(distill)
 Here is the data necessary for this script:
 ```{r}
 #original Siebert Data
-AEI <- read.csv2(
+aei <- read.csv2(
   "/Volumes/RachelExternal/Thesis/Data/SiebertData/HID_v10/Country_tenyear_ha.csv")
 #import the data set with total country area, this comes from the Worldbank
 countryarea <- read.csv2(
