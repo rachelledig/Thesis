@@ -2,11 +2,12 @@
 title: "R Notebook"
 output: 
   html_document:
-    toc: yes
+    toc: true
+    toc_float: true
     
 ---
 
-```{r Loaded Packages}
+```{r Loaded Packages, include=FALSE}
 library(knitr)
 library(brms)
 library(tidyverse)
@@ -16,10 +17,17 @@ library(ggplot2)
 ```
 
 
+Necessary files:
+```{r}
+#read the file, if you dont have it from the previous markdown. 
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
+```
+
+
 
 Jumping in to the zero inflated models. Some helpful stuff here has been [_How to analyze visual analog (slider) scale data?_](https://mvuorre.github.io/posts/2019-02-18-analyze-analog-scale-ratings-with-zero-one-inflated-beta-models/) by Matti Vuorre. 
 
-Following what he has done, specify a `bf()`. Here we are using regions as the grouping factor, just to get things going. I've specified no priors here. Getting things running is the goal here. There is no time series component here, ignoring this for now. 
+Following what he has done, specify a `bf()`. Here we are using regions as the grouping factor, just to get things going. I've specified no priors here. Getting things running is the goal here. There is no time series component here, ignoring this for now.  
 ```{r 8 region ZIB}
 zi_eight_regions_bf <- 
   bf(

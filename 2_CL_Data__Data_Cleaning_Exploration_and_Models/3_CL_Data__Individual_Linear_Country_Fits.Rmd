@@ -153,7 +153,7 @@ r2 <-
   select(ISO, r2)
 
 ```
-
+## Country Level Fits
 ```{r Table, message=FALSE, warning=FALSE}
 table <-
   models %>% 
