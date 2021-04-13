@@ -152,8 +152,13 @@ aei$area_km[which(aei$ISO == "SDN")] <- 1882000 #Sudan from UNDP
 ```
 Standardize or scale the area. Gotta flip it out and then remerge it. 
 ```{r}
-aei$area_km_std <- aei$area_km/mean(aei$area_km)
-aei$area_km_sc <- aei$area_km/max(aei$area_km)
+aei2<- 
+  aei %>% 
+  subset(!is.na(area_km)) %>% 
+  mutate(area_km_std = area_km/mean(area_km), area_km_sc = area_km/max(area_km))
+
+aei <-
+  merge(aei, aei2, all.x = TRUE)
 ```
 
 
@@ -624,6 +629,11 @@ rm(rug, rugged)
 
 ```{r}
 hist(aei$rugged_sc, breaks = 100)
+```
+
+Save that!
+```{r}
+write.csv(aei, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
 ```
 
 

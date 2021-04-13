@@ -268,7 +268,30 @@ zi_simple_preds_3 <-
   data = aei,
   cores = 4,
   seed = 17,
-  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zi_simple_preds_2"
+  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zi_simple_preds_3"
+)
+```
+
+
+```{r}
+zi_simple_preds_4_bf <- 
+  bf(
+  irrfrac ~ yearcount + (yearcount|six_regions),
+  phi ~ 1, 
+  zi ~ area_km,
+  family = zero_inflated_beta() 
+)
+```
+
+```{r The Model, echo=TRUE, results='hide'}
+#and the model
+zi_simple_preds_4 <- 
+  brm(
+  formula = zi_simple_preds_4_bf,
+  data = aei,
+  cores = 4,
+  seed = 17,
+  file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zi_simple_preds_4"
 )
 ```
 ## The Posterior
