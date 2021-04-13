@@ -150,6 +150,11 @@ aei$area_km[which(aei$ISO == "SMK")] <- 13812 + 10905 + 77589 #Montenegro + Koso
 aei$area_km[which(aei$ISO == "TWN")] <- 35980 #Taiwan from CIA.gov
 aei$area_km[which(aei$ISO == "SDN")] <- 1882000 #Sudan from UNDP
 ```
+Standardize or scale the area. Gotta flip it out and then remerge it. 
+```{r}
+aei$area_km_std <- aei$area_km/mean(aei$area_km)
+aei$area_km_sc <- aei$area_km/max(aei$area_km)
+```
 
 
 Now, transform the AEI_ha to $km^2$ and divide to get the % of total country area that is equipped for irrigation. There are still some countries that have 0 AEI_ha and no area_km value. I think I will assign the irrfrac/perc 0 to those countries, but lets wait a little while to do that, most are islands.  
