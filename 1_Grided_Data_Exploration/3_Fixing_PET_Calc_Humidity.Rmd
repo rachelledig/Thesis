@@ -1,15 +1,13 @@
 ---
 title: "Fixing PET and Calculating Humidity"
 date: "April 15, 2021"
-output: html_notebook
+output: html_document
 bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
 ---
 
 ```{r include=FALSE}
-library(tidyverse)
-library(tidyr)
 library(dplyr)
-library(magclass)
+library(tidyr)
 ```
 Lets begin with loading things.. Files you wont have. Just ask me? Annnndd... remove all the stuff you don't need so things don't get crazy on you (hopefully?).
 
@@ -21,7 +19,7 @@ load("/Volumes/RachelExternal/Thesis/Thesis/Original_Grid_Data_Scripts/data/coun
 rm(distNextIrr, irrFrac, lpjGDPpc, mean_increase, median_increase, popdens, discharge_landuse, globalIrrigArea, lat, lon, runoff_landuse, transp_blue_landuse, transp_green_landuse)
 ```
 
-So `fullCountryData` has all of the info we need to create the structure of this data frame, let's start working thinngs in to it. 
+So `fullCountryData` has all of the info we need to create the structure of this data frame, let's start working things in to it. 
 ```{r}
 structure <- fullCountryData
 rm(fullCountryData)
@@ -58,7 +56,7 @@ We need months.
 mo <- seq(1,12,1)
 ```
 
-Annd lets separate this the clunkiest way possible. I am proud I found such a horrible solution. 
+And lets separate this the clunkiest way possible. I am proud I found such a horrible solution. 
 ```{r}
 #repeating the col names for all 105 years
 colnames(humidity) <- rep(mo, 105)
@@ -75,13 +73,27 @@ for(i in 1:length(val)){
     ) } 
 #finally combining all year's dfs vertically
 humidity_long <- do.call(bind_rows, mget(paste0("humyear_", c(1:105))))
-#and binding them to the big df, d
-structure <- bind_cols(structure, humidity_long)
+#and binding them to the big df
+humidity_full <- bind_cols(structure, humidity_long)
 rm(list = paste0("humyear_", seq(1,105,1)))
 rm(humidity, humla, humidity_long)
 
 
-names(structure)[6:17] <- paste("Humidity", 1:ncol(structure[,6:17]), sep = "")
+names(humidity_full)[6:17] <- paste("Humidity", 1:ncol(humidity_full[,6:17]), sep = "")
+
+#long data
+humidity_full <- 
+    humidity_full %>% 
+    pivot_longer(cols = Humidity1:Humidity12,
+                 names_to = "Months", 
+                 values_to = "Humidity")
+
+humidity_full$year <- as.factor(humidity_full$year)
+
+#i hate this solution. 
+humidity_full <- subset(humidity_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
+
+
 ```
 
 lets do it again for PET only
@@ -103,12 +115,25 @@ for(i in 1:length(val)){
     ) } 
 #finally combining all year's dfs vertically
 PET_long <- do.call(bind_rows, mget(paste0("PETyear_", c(1:105))))
-#and binding them to the big df, d
-structure <- bind_cols(structure, PET_long)
+#and binding them to the big df
+PET_full <- bind_cols(structure, PET_long)
 rm(list = paste0("PETyear_", seq(1,105,1)))
 rm(PET, PETla, PET_long)
 
-names(structure)[18:29] <- paste("PET", 1:ncol(structure[,18:29]), sep = "")
+names(PET_full)[6:17] <- paste("PET", 1:ncol(PET_full[,6:17]), sep = "")
+
+#long data
+PET_full <- 
+    PET_full %>% 
+    pivot_longer(cols = PET1:PET12,
+                 names_to = "Months", 
+                 values_to = "PET")
+
+PET_full$year <- as.factor(PET_full$year)
+
+#i hate this solution. 
+PET_full <- subset(PET_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
+
 ```
 
 And finally for precip. But as Fabian mentioned before, I need to sum to $m^3/year$. Knowing that $1 mm = 1 \frac{L}{m^2}$ we can get somewhere. Ill throw cell area in to the dataframe too.
@@ -129,18 +154,30 @@ for(i in 1:length(val)){
     ) } 
 #finally combining all year's dfs vertically
 Precip_long <- do.call(bind_rows, mget(paste0("Precipyear_", c(1:105))))
-#and binding them to the big df, d
-structure <- bind_cols(structure, Precip_long)
+#and binding them to the big df
+Precip_full <- bind_cols(structure, Precip_long)
 rm(list = paste0("Precipyear_", seq(1,105,1)))
 rm(Precip, Precipla, Precip_long)
 
-names(structure)[30:41] <- paste("Precipmm", 1:ncol(structure[,30:41]), sep = "")
+names(Precip_full)[6:17] <- paste("Precipmm", 1:ncol(Precip_full[,6:17]), sep = "")
 
 #and cell area
 cellarea <- as.data.frame(cellarea)
 cellarea <- do.call("rbind", replicate(105, cellarea, simplify = FALSE))
-structure$cellarea <- cellarea
+Precip_full <- cbind(cellarea, Precip_full)
 rm(cellarea)
+
+#long data
+Precip_full <- 
+    Precip_full %>% 
+    pivot_longer(cols = Precipmm1:Precipmm12,
+                 names_to = "Months", 
+                 values_to = "Precip")
+
+Precip_full$year <- as.factor(Precip_full$year)
+
+#i hate this solution. 
+Precip_full <- subset(Precip_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
 ```
 
 Stragglers.
@@ -148,25 +185,71 @@ Stragglers.
 rm(total_PET_allcrops, interc_landuse, evap_landuse)
 ```
 
-Lets subset this for the years I want for the country level model.
 
+For some reason it lists all of the years as the factor levels but it has done the subsetting. Idk why, but its getting late so I just accept it at this point.  
+
+
+***
+
+Alright, game time.  
+
+So humidity (remember $Precip/PET$ which is in the units of mm and mm/mo respectively) cannot be summed, we need to take the average of all grid cells during all months for each country and year.The same goes for PET, we will take the average of all data cells per country during one year. 
+
+
+First, Humidity we just need the mean and the median of all the values for a year and for a country. This should do it.
 ```{r}
-structure$year <- as.factor(structure$year)
-structure$ISO <- as.factor(structure$ISO)
-
-#i hate this solution. 
-structure <- subset(structure, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
-
-levels(structure$year)
-```
-
-For some reason it lists all of the years as the factor levels but it has done the subsetting. Idk why, but its getting late so I just accept it at this point.   
-
-Now, we mutate!
-```{r}
-structure2 <- 
-    structure %>% 
+humidity_full <-
+    humidity_full %>% 
     group_by(ISO, year) %>% 
-    mutate(mean_hum = mean())
+    summarise(meanHumid = mean(Humidity), 
+              medHumid = median(Humidity))
+
+head(humidity_full, 20)
+    
 ```
 
+Now, PET. Same procedure as humidity.
+```{r}
+PET_full <-
+    PET_full %>% 
+    group_by(ISO, year) %>% 
+    summarise(meanPET = mean(PET), 
+              medPET = median(PET))
+
+head(PET_full, 20)
+    
+```
+
+Precippp.... I work out the units here just for me to keep things clear.
+$$
+\begin{aligned}
+1 mm  &= \frac{1 L}{m^2} \\
+&= \frac{1 L}{m^2} * cellarea(m^2) \\
+&= 1L \\
+&= 0.001 m^3
+\end{aligned}
+$$
+So I'm gonna multiply things by their cell area then average/take the median. 
+
+```{r}
+
+Precip_full <- 
+    Precip_full %>% 
+    mutate(precipm3 = Precip*cellarea*0.001) %>% 
+    group_by(ISO,year) %>% 
+    summarise(cubM_precip = sum(precipm3))
+    
+
+head(Precip_full, 20)
+```
+All looks good. Lets merge these and save them as a csv file. 
+```{r}
+hum_pet_prec <-
+    merge(humidity_full, PET_full) %>% 
+    merge(Precip_full)
+
+head(hum_pet_prec, 20)
+
+#write.csv(hum_pet_prec, "/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv")
+```
+Wahoo!!
