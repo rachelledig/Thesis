@@ -1,0 +1,172 @@
+---
+title: "Fixing PET and Calculating Humidity"
+date: "April 15, 2021"
+output: html_notebook
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(magclass)
+```
+Lets begin with loading things.. Files you wont have. Just ask me? Annnndd... remove all the stuff you don't need so things don't get crazy on you (hopefully?).
+
+```{r}
+load("/Volumes/RachelExternal/Thesis/Thesis/Original_Grid_Data_Scripts/data/data.RData")
+load("/Volumes/RachelExternal/Thesis/Thesis/Original_Grid_Data_Scripts/data/pet_data.RData")
+load("/Volumes/RachelExternal/Thesis/Thesis/Original_Grid_Data_Scripts/data/countryData_67420.RData")
+
+rm(distNextIrr, irrFrac, lpjGDPpc, mean_increase, median_increase, popdens, discharge_landuse, globalIrrigArea, lat, lon, runoff_landuse, transp_blue_landuse, transp_green_landuse)
+```
+
+So `fullCountryData` has all of the info we need to create the structure of this data frame, let's start working thinngs in to it. 
+```{r}
+structure <- fullCountryData
+rm(fullCountryData)
+
+#flip structure around so its long
+structure <- do.call("rbind", replicate(105, structure, simplify = FALSE))
+
+#add a col for year
+structure$year <- rep(1901:2005, each=67420)
+```
+
+Ok so the game plan here: PET data has the structure [1:67420, 1:12, 1:105], meaning that it has a layer for every month of every year for all 67420 grid cells. Precipitation has the same structure. We want average humidity and average PET for a country for a year. 
+
+In @neumannExploringGlobalIrrigation2011, humidity is calculated as: $Precip/PET$. We shall follow the same logic here. First lets make a data frame that maintains all of the resolution contained in the mm/mo/year dataset of total_PET and prec_landuse
+
+```{r}
+PET <- as.data.frame(total_PET)
+rm(total_PET)
+
+Precip <- as.data.frame(prec_landuse)
+rm(prec_landuse)
+```
+
+Nothing has crashed yet, on thin ice though.  
+
+So PET and precip are in the same format. Can I just divide them element wise to calculate humidity? (I put the 1 in there so we don't get inf values :) )
+
+```{r}
+humidity <- Precip/(PET+1)
+```
+
+We need months.
+```{r}
+mo <- seq(1,12,1)
+```
+
+Annd lets separate this the clunkiest way possible. I am proud I found such a horrible solution. 
+```{r}
+#repeating the col names for all 105 years
+colnames(humidity) <- rep(mo, 105)
+#separating the dataframe every 32nd col, to create yearly data
+humla <- lapply(seq(1, ncol(humidity), by=12), function(i) 
+     humidity[i: pmin((i+11), ncol(humidity))])
+#couldnt figure this out any other way, so naming all of the separated dfs and 
+#saving them as objects
+nam <- "humyear_"
+val <- c(1:length(humla))
+for(i in 1:length(val)){
+    assign(
+        paste(nam, val, sep = "")[i], humla[[i]]
+    ) } 
+#finally combining all year's dfs vertically
+humidity_long <- do.call(bind_rows, mget(paste0("humyear_", c(1:105))))
+#and binding them to the big df, d
+structure <- bind_cols(structure, humidity_long)
+rm(list = paste0("humyear_", seq(1,105,1)))
+rm(humidity, humla, humidity_long)
+
+
+names(structure)[6:17] <- paste("Humidity", 1:ncol(structure[,6:17]), sep = "")
+```
+
+lets do it again for PET only
+
+```{r}
+
+#repeating the col names for all 105 years
+colnames(PET) <- rep(mo, 105)
+#separating the dataframe every 32nd col, to create yearly data
+PETla <- lapply(seq(1, ncol(PET), by=12), function(i) 
+     PET[i: pmin((i+11), ncol(PET))])
+#couldnt figure this out any other way, so naming all of the separated dfs and 
+#saving them as objects
+nam <- "PETyear_"
+val <- c(1:length(PETla))
+for(i in 1:length(val)){
+    assign(
+        paste(nam, val, sep = "")[i], PETla[[i]]
+    ) } 
+#finally combining all year's dfs vertically
+PET_long <- do.call(bind_rows, mget(paste0("PETyear_", c(1:105))))
+#and binding them to the big df, d
+structure <- bind_cols(structure, PET_long)
+rm(list = paste0("PETyear_", seq(1,105,1)))
+rm(PET, PETla, PET_long)
+
+names(structure)[18:29] <- paste("PET", 1:ncol(structure[,18:29]), sep = "")
+```
+
+And finally for precip. But as Fabian mentioned before, I need to sum to $m^3/year$. Knowing that $1 mm = 1 \frac{L}{m^2}$ we can get somewhere. Ill throw cell area in to the dataframe too.
+
+```{r}
+#repeating the col names for all 105 years
+colnames(Precip) <- rep(mo, 105)
+#separating the dataframe every 32nd col, to create yearly data
+Precipla <- lapply(seq(1, ncol(Precip), by=12), function(i) 
+     Precip[i: pmin((i+11), ncol(Precip))])
+#couldnt figure this out any other way, so naming all of the separated dfs and 
+#saving them as objects
+nam <- "Precipyear_"
+val <- c(1:length(Precipla))
+for(i in 1:length(val)){
+    assign(
+        paste(nam, val, sep = "")[i], Precipla[[i]]
+    ) } 
+#finally combining all year's dfs vertically
+Precip_long <- do.call(bind_rows, mget(paste0("Precipyear_", c(1:105))))
+#and binding them to the big df, d
+structure <- bind_cols(structure, Precip_long)
+rm(list = paste0("Precipyear_", seq(1,105,1)))
+rm(Precip, Precipla, Precip_long)
+
+names(structure)[30:41] <- paste("Precipmm", 1:ncol(structure[,30:41]), sep = "")
+
+#and cell area
+cellarea <- as.data.frame(cellarea)
+cellarea <- do.call("rbind", replicate(105, cellarea, simplify = FALSE))
+structure$cellarea <- cellarea
+rm(cellarea)
+```
+
+Stragglers.
+```{r}
+rm(total_PET_allcrops, interc_landuse, evap_landuse)
+```
+
+Lets subset this for the years I want for the country level model.
+
+```{r}
+structure$year <- as.factor(structure$year)
+structure$ISO <- as.factor(structure$ISO)
+
+#i hate this solution. 
+structure <- subset(structure, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
+
+levels(structure$year)
+```
+
+For some reason it lists all of the years as the factor levels but it has done the subsetting. Idk why, but its getting late so I just accept it at this point.   
+
+Now, we mutate!
+```{r}
+structure2 <- 
+    structure %>% 
+    group_by(ISO, year) %>% 
+    mutate(mean_hum = mean())
+```
+

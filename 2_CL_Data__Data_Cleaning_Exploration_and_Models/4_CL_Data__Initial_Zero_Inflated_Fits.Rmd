@@ -4,6 +4,7 @@ output:
   html_document:
     toc: true
     toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
     
 ---
 
@@ -25,7 +26,7 @@ aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
 
 # Eight Region Model
 
-Jumping in to the zero inflated models. Some helpful stuff here has been [_How to analyze visual analog (slider) scale data?_](https://mvuorre.github.io/posts/2019-02-18-analyze-analog-scale-ratings-with-zero-one-inflated-beta-models/) by Matti Vuorre. 
+Jumping in to the zero inflated models. Some helpful stuff here has been [_How to analyze visual analog (slider) scale data?_](https://mvuorre.github.io/posts/2019-02-18-analyze-analog-scale-ratings-with-zero-one-inflated-beta-models/) by Matti @vuorreSometimesHowAnalyze2019. 
 
 ## The Model
 
