@@ -44,9 +44,13 @@ income <- read.csv(
 #population data also taken from Gapminder
 population <- read.csv(
   "/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_population_total.csv")
-#cftandprecip is a script with all the grid cell values, from LPJmL output 
-cftandprecip <- read.csv(
+#cft taken from LPJmL output
+cft <- read.csv(
   '/Volumes/RachelExternal/Thesis/Thesis/Data/cft_and_precipdata.csv')
+#humidity, PET, and precipitation
+hum_PET_prec <- read.csv(
+  '/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv')
+
 ```
 
 
@@ -69,11 +73,9 @@ aei$year <- as.numeric(aei$year)
 aei$aei_ha <- as.numeric(aei$aei_ha)
 aei$ISO <- as.factor(aei$ISO)
 aei$country <- as.factor(aei$country)
-#subset the data so that its from the year 1960
-aei <- aei %>% subset(year >= 1960)
 
 #make a new col for year count
-aei$yearcount <- (aei$year - 1960)
+aei$yearcount <- (aei$year - 1900)
 
 #remove data for the total global irrigated area
 globeaei <- subset(aei, country == "WORLD")
@@ -128,6 +130,14 @@ Merge the country area with the AEI df here.
 ```{r Join CAr }
 #combine these data sets
 aei <- aei %>% merge(y = countryarea, by.x = c("ISO", "year"), all.x = TRUE)
+
+#going to do the same thing as before so that I have area for all the other years
+#assuming that political borders are the same as in the year 2005
+aei <-
+  aei %>% 
+  group_by(ISO) %>% 
+  fill(area_km, .direction = "up") %>% 
+  ungroup()
 
 rm(countryarea)
 head(aei)
@@ -242,7 +252,7 @@ Income data is coming from Gapminder, as they have put real effort in to filling
 
 ```{r}
 
-income <- income[, c(1, 162:207)] #removing extra years
+income <- income[, c(1, 102:207)] #removing extra years
 
 #making long data
 income <- 
@@ -281,7 +291,7 @@ Population data is also taken from Gapminder. The same process of logging and st
 
 ```{r}
 #removing extra years
-population <- population[, c(1, 162:207)] 
+population <- population[, c(1, 102:207)] 
 #making longer data
 population <- 
   population %>%  
@@ -553,20 +563,13 @@ The countries that don't have income also don't have population, so as least I a
 
 Again, precipitation is translated output from LPJmL. Precipitation was chosen because it could be summed across countries, as other data could not (like discharge or ET). I have summed the precipitation by country and year. I am not sure whether I should scale or standardize precip, I will do all the possible combinations at the moment. 
 ```{r Precip Manipulation, message=FALSE, warning=FALSE}
-#precipitation
-cftandprecip$ISO <- as.factor(cftandprecip$ISO)
-cftandprecip <- cftandprecip[, -c(1)] #remove id col
-cftandprecip <- subset(cftandprecip, year >= 1960)
-
 #log and scale
 precip <- 
-  cftandprecip %>% 
-  select(ISO, year, precipmm) %>% 
-  group_by(ISO, year) %>% 
-  summarise(preciptot = (sum(precipmm))) %>% #sum grid cells by ISO and year
-  mutate(precip_sc = preciptot/max(preciptot)) %>% 
-  mutate(precip_std = preciptot/mean(preciptot)) %>% 
-  mutate(log_precip = log(preciptot+1)) %>% #1 is added here to prevent -Inf
+  hum_PET_prec %>% 
+  select(ISO, year, cubM_precip) %>% 
+  mutate(precip_sc = cubM_precip/max(cubM_precip)) %>% 
+  mutate(precip_std = cubM_precip/mean(cubM_precip)) %>% 
+  mutate(log_precip = log(cubM_precip)) %>% #1 is added here to prevent -Inf
   mutate(log_precip_sc = log_precip/max(log_precip)) %>% 
   mutate(log_precip_std = log_precip/mean(log_precip))
 
@@ -577,7 +580,7 @@ rm(precip)
 
 And some histograms to check out the scaled/standardized data. 
 ```{r Precip Hists}
-hist(aei$preciptot, breaks = 100)
+hist(aei$cubM_precip, breaks = 100)
 hist(aei$precip_sc, breaks = 100)
 hist(aei$precip_std, breaks = 100)
 hist(aei$log_precip, breaks = 100)
@@ -591,8 +594,12 @@ hist(aei$log_precip_std, breaks = 100)
 Uff. Then comes crop fraction. As mentioned above individual crop fraction per grid cell is multiplied by respective grid cell area, summed on a country level giving ha of each crop grown per country. This was then divided by total area of the country to achieve the % area occupied by a certain crop per country.
 ```{r CFT manipulation, message=FALSE, warning=FALSE}
 #pull cft frac outta here
+cft$ISO <- as.factor(cft$ISO)
+cft <- cft[, -c(1)] #remove id col
+cft <- subset(cft, year >= 1900)
+
 cft <- 
-  cftandprecip %>% 
+  cft %>% 
   select(-c(4)) %>% #removing precip
   mutate_each(funs(.*cellaream2), c(4:35)) %>% #multiply all fractions with the cell area
   group_by(ISO, year) %>% #group in to country and year
@@ -604,7 +611,7 @@ cft <- cft[, -c(18, 19, 26, 34, 35)]
 
 #and a merge
 aei <- merge(aei, cft, by = c("ISO", "year"), all.x = TRUE)
-rm(cft, cftandprecip)
+rm(cft)
 ```
 
 Idk how to show the data here. Any ideas on representation would be helpful here. 
