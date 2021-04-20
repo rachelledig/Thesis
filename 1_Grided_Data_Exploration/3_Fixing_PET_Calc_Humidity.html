@@ -206,17 +206,31 @@ rm(fullCountryData)
 structure &lt;- do.call(&quot;rbind&quot;, replicate(105, structure, simplify = FALSE))
 
 #add a col for year
-structure$year &lt;- rep(1901:2005, each=67420)</code></pre>
+structure$year &lt;- rep(1901:2005, each=67420)
+
+summary(structure)</code></pre>
+<pre><code>##       COW             REG               Countryname           ISO         
+##  Min.   :  0.0   Min.   :  0.0   Russia       :1307460   RUS    :1307460  
+##  1st Qu.:119.0   1st Qu.:119.0   Canada       : 814695   CAN    : 814695  
+##  Median :229.0   Median :235.0   United_States: 503790   USA    : 503790  
+##  Mean   :176.8   Mean   :228.4   China        : 406770   CHN    : 406770  
+##  3rd Qu.:234.0   3rd Qu.:337.0   Australia    : 320565   AUS    : 320565  
+##  Max.   :235.0   Max.   :471.0   Greenland    : 312165   (Other):3709755  
+##                                  (Other)      :3413655   NA&#39;s   :  16065  
+##       year     
+##  Min.   :1901  
+##  1st Qu.:1927  
+##  Median :1953  
+##  Mean   :1953  
+##  3rd Qu.:1979  
+##  Max.   :2005  
+## </code></pre>
+<p>Structure has some NAs for ISO, I will remove them as they are not attatched to countries. But lets get everything sorted first.</p>
 <p>Ok so the game plan here: PET data has the structure [1:67420, 1:12, 1:105], meaning that it has a layer for every month of every year for all 67420 grid cells. Precipitation has the same structure. We want average humidity and average PET for a country for a year.</p>
 <p>In <span class="citation">Neumann et al. (2011)</span>, humidity is calculated as: <span class="math inline">\(Precip/PET\)</span>. We shall follow the same logic here. First lets make a data frame that maintains all of the resolution contained in the mm/mo/year dataset of total_PET and prec_landuse</p>
-<pre class="r"><code>PET &lt;- as.data.frame(total_PET)
-rm(total_PET)
-
-Precip &lt;- as.data.frame(prec_landuse)
-rm(prec_landuse)</code></pre>
+<p>So PET and precip are in the same format. Can I just divide them element wise to calculate humidity?</p>
+<pre class="r"><code>humidity &lt;- as.data.frame(prec_landuse/total_PET)</code></pre>
 <p>Nothing has crashed yet, on thin ice though.</p>
-<p>So PET and precip are in the same format. Can I just divide them element wise to calculate humidity? (I put the 1 in there so we don’t get inf values :) )</p>
-<pre class="r"><code>humidity &lt;- Precip/(PET+1)</code></pre>
 <p>We need months.</p>
 <pre class="r"><code>mo &lt;- seq(1,12,1)</code></pre>
 <p>And lets separate this the clunkiest way possible. I am proud I found such a horrible solution.</p>
@@ -253,9 +267,46 @@ humidity_full &lt;-
 humidity_full$year &lt;- as.factor(humidity_full$year)
 
 #i hate this solution. 
-humidity_full &lt;- subset(humidity_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)</code></pre>
-<p>lets do it again for PET only</p>
-<pre class="r"><code>#repeating the col names for all 105 years
+humidity_full &lt;- subset(humidity_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)
+
+#had issues here with inf and NaN values
+#gonna make another col
+humidity_full &lt;- humidity_full %&gt;% 
+  mutate(Humidity2 = Humidity)
+
+infs &lt;- humidity_full[is.infinite(humidity_full$Humidity),]
+nans &lt;- humidity_full[is.nan(humidity_full$Humidity),]
+
+#just so i can keep track of which vals are inf
+humidity_full$Humidity[mapply(is.infinite, humidity_full$Humidity)] &lt;- 0
+humidity_full$Humidity2[mapply(is.infinite, humidity_full$Humidity2)] &lt;- NA
+
+#and the same for NaN values
+humidity_full$Humidity[mapply(is.nan, humidity_full$Humidity)] &lt;- 0
+humidity_full$Humidity2[mapply(is.nan, humidity_full$Humidity2)] &lt;- NA
+
+
+summary(humidity_full)</code></pre>
+<pre><code>##       COW             REG               Countryname           ISO         
+##  Min.   :  0.0   Min.   :  0.0   Russia       :2091936   RUS    :2091936  
+##  1st Qu.:119.0   1st Qu.:119.0   Canada       :1303512   CAN    :1303512  
+##  Median :229.0   Median :235.0   United_States: 806064   USA    : 806064  
+##  Mean   :176.8   Mean   :228.4   China        : 650832   CHN    : 650832  
+##  3rd Qu.:234.0   3rd Qu.:337.0   Australia    : 512904   AUS    : 512904  
+##  Max.   :235.0   Max.   :471.0   Greenland    : 499464   (Other):5935608  
+##                                  (Other)      :5461848   NA&#39;s   :  25704  
+##       year            Months             Humidity           Humidity2        
+##  1901   : 809040   Length:11326560    Min.   :0.000e+00   Min.   :0.000e+00  
+##  1910   : 809040   Class :character   1st Qu.:0.000e+00   1st Qu.:0.000e+00  
+##  1920   : 809040   Mode  :character   Median :1.000e+00   Median :1.000e+00  
+##  1930   : 809040                      Mean   :8.941e+04   Mean   :9.425e+04  
+##  1940   : 809040                      3rd Qu.:1.000e+00   3rd Qu.:2.000e+00  
+##  1950   : 809040                      Max.   :7.340e+11   Max.   :7.340e+11  
+##  (Other):6472320                                          NA&#39;s   :582299</code></pre>
+<p>Gotten rid of the inf and NaN values, at least in the col Humidity, and have maintained them in Humidity2.</p>
+<p>Moving on to PET.</p>
+<pre class="r"><code>PET &lt;- as.data.frame(total_PET)
+#repeating the col names for all 105 years
 colnames(PET) &lt;- rep(mo, 105)
 #separating the dataframe every 32nd col, to create yearly data
 PETla &lt;- lapply(seq(1, ncol(PET), by=12), function(i) 
@@ -287,9 +338,29 @@ PET_full &lt;-
 PET_full$year &lt;- as.factor(PET_full$year)
 
 #i hate this solution. 
-PET_full &lt;- subset(PET_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)</code></pre>
+PET_full &lt;- subset(PET_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)
+
+summary(PET_full)</code></pre>
+<pre><code>##       COW             REG               Countryname           ISO         
+##  Min.   :  0.0   Min.   :  0.0   Russia       :2091936   RUS    :2091936  
+##  1st Qu.:119.0   1st Qu.:119.0   Canada       :1303512   CAN    :1303512  
+##  Median :229.0   Median :235.0   United_States: 806064   USA    : 806064  
+##  Mean   :176.8   Mean   :228.4   China        : 650832   CHN    : 650832  
+##  3rd Qu.:234.0   3rd Qu.:337.0   Australia    : 512904   AUS    : 512904  
+##  Max.   :235.0   Max.   :471.0   Greenland    : 499464   (Other):5935608  
+##                                  (Other)      :5461848   NA&#39;s   :  25704  
+##       year            Months               PET        
+##  1901   : 809040   Length:11326560    Min.   :  0.00  
+##  1910   : 809040   Class :character   1st Qu.: 25.09  
+##  1920   : 809040   Mode  :character   Median : 95.52  
+##  1930   : 809040                      Mean   : 92.31  
+##  1940   : 809040                      3rd Qu.:142.18  
+##  1950   : 809040                      Max.   :317.80  
+##  (Other):6472320</code></pre>
 <p>And finally for precip. But as Fabian mentioned before, I need to sum to <span class="math inline">\(m^3/year\)</span>. Knowing that <span class="math inline">\(1 mm = 1 \frac{L}{m^2}\)</span> we can get somewhere. Ill throw cell area in to the dataframe too.</p>
-<pre class="r"><code>#repeating the col names for all 105 years
+<pre class="r"><code>Precip &lt;- as.data.frame(prec_landuse)
+rm(prec_landuse)
+#repeating the col names for all 105 years
 colnames(Precip) &lt;- rep(mo, 105)
 #separating the dataframe every 32nd col, to create yearly data
 Precipla &lt;- lapply(seq(1, ncol(Precip), by=12), function(i) 
@@ -327,7 +398,25 @@ Precip_full &lt;-
 Precip_full$year &lt;- as.factor(Precip_full$year)
 
 #i hate this solution. 
-Precip_full &lt;- subset(Precip_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)</code></pre>
+Precip_full &lt;- subset(Precip_full, year == &quot;1901&quot;| year == &quot;1910&quot;| year == &quot;1920&quot;| year == &quot;1930&quot;| year == &quot;1940&quot;| year == &quot;1950&quot;| year == &quot;1960&quot;| year == &quot;1970&quot;| year == &quot;1980&quot;| year == &quot;1985&quot;| year == &quot;1990&quot;| year == &quot;1995&quot;| year == &quot;2000&quot;| year == &quot;2005&quot;)
+
+summary(Precip_full)</code></pre>
+<pre><code>##     cellarea             COW             REG               Countryname     
+##  Min.   : 9347662   Min.   :  0.0   Min.   :  0.0   Russia       :2091936  
+##  1st Qu.:42606754   1st Qu.:119.0   1st Qu.:119.0   Canada       :1303512  
+##  Median :64555398   Median :229.0   Median :235.0   United_States: 806064  
+##  Mean   :60308859   Mean   :176.8   Mean   :228.4   China        : 650832  
+##  3rd Qu.:79750593   3rd Qu.:234.0   3rd Qu.:337.0   Australia    : 512904  
+##  Max.   :85862417   Max.   :235.0   Max.   :471.0   Greenland    : 499464  
+##                                                     (Other)      :5461848  
+##       ISO               year            Months              Precip       
+##  RUS    :2091936   1901   : 809040   Length:11326560    Min.   :   0.00  
+##  CAN    :1303512   1910   : 809040   Class :character   1st Qu.:   9.00  
+##  USA    : 806064   1920   : 809040   Mode  :character   Median :  30.00  
+##  CHN    : 650832   1930   : 809040                      Mean   :  59.73  
+##  AUS    : 512904   1940   : 809040                      3rd Qu.:  73.00  
+##  (Other):5935608   1950   : 809040                      Max.   :2575.00  
+##  NA&#39;s   :  25704   (Other):6472320</code></pre>
 <p>Stragglers.</p>
 <pre class="r"><code>rm(total_PET_allcrops, interc_landuse, evap_landuse)</code></pre>
 <p>For some reason it lists all of the years as the factor levels but it has done the subsetting. Idk why, but its getting late so I just accept it at this point.</p>
@@ -339,41 +428,35 @@ Precip_full &lt;- subset(Precip_full, year == &quot;1901&quot;| year == &quot;19
     humidity_full %&gt;% 
     group_by(ISO, year) %&gt;% 
     summarise(meanHumid = mean(Humidity), 
-              medHumid = median(Humidity))</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;ISO&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>head(humidity_full, 20)</code></pre>
-<pre><code>## # A tibble: 20 x 4
-## # Groups:   ISO [2]
-##    ISO   year  meanHumid medHumid
-##    &lt;fct&gt; &lt;fct&gt;     &lt;dbl&gt;    &lt;dbl&gt;
-##  1 AFG   1901      0.310   0.108 
-##  2 AFG   1910      0.435   0.0671
-##  3 AFG   1920      0.494   0.141 
-##  4 AFG   1930      0.468   0.123 
-##  5 AFG   1940      0.437   0.150 
-##  6 AFG   1950      0.419   0.0747
-##  7 AFG   1960      0.473   0.144 
-##  8 AFG   1970      0.290   0.0397
-##  9 AFG   1980      0.554   0.101 
-## 10 AFG   1985      0.324   0.0317
-## 11 AFG   1990      0.568   0.0821
-## 12 AFG   1995      0.402   0.129 
-## 13 AFG   2000      0.338   0.0624
-## 14 AFG   2005      0.454   0.0863
-## 15 AGO   1901      0.599   0.363 
-## 16 AGO   1910      0.647   0.351 
-## 17 AGO   1920      0.619   0.363 
-## 18 AGO   1930      0.500   0.201 
-## 19 AGO   1940      0.560   0.400 
-## 20 AGO   1950      0.717   0.402</code></pre>
+              meanHumid2 = mean(Humidity2, na.rm=TRUE), 
+              medHumid = median(Humidity),
+              medHumid2 = median(Humidity2, na.rm=TRUE))
+
+summary(humidity_full)</code></pre>
+<pre><code>##       ISO            year        meanHumid         meanHumid2     
+##  AFG    :  14   1901   : 236   Min.   :      0   Min.   :      0  
+##  AGO    :  14   1910   : 236   1st Qu.:      1   1st Qu.:      1  
+##  AIA    :  14   1920   : 236   Median :      1   Median :      1  
+##  ALA    :  14   1930   : 236   Mean   :   5073   Mean   :   5679  
+##  ALB    :  14   1940   : 236   3rd Qu.:      2   3rd Qu.:      2  
+##  (Other):3220   1950   : 236   Max.   :8247841   Max.   :9025940  
+##  NA&#39;s   :  14   (Other):1888                                      
+##     medHumid        medHumid2     
+##  Min.   :0.0000   Min.   :0.0000  
+##  1st Qu.:0.3509   1st Qu.:0.3509  
+##  Median :0.8257   Median :0.8411  
+##  Mean   :0.8880   Mean   :0.9064  
+##  3rd Qu.:1.2377   3rd Qu.:1.2645  
+##  Max.   :6.9842   Max.   :6.9842  
+## </code></pre>
 <p>Now, PET. Same procedure as humidity.</p>
 <pre class="r"><code>PET_full &lt;-
     PET_full %&gt;% 
     group_by(ISO, year) %&gt;% 
     summarise(meanPET = mean(PET), 
-              medPET = median(PET))</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;ISO&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>head(PET_full, 20)</code></pre>
+              medPET = median(PET))
+
+head(PET_full, 20)</code></pre>
 <pre><code>## # A tibble: 20 x 4
 ## # Groups:   ISO [2]
 ##    ISO   year  meanPET medPET
@@ -410,9 +493,10 @@ Precip_full &lt;- subset(Precip_full, year == &quot;1901&quot;| year == &quot;19
     Precip_full %&gt;% 
     mutate(precipm3 = Precip*cellarea*0.001) %&gt;% 
     group_by(ISO,year) %&gt;% 
-    summarise(cubM_precip = sum(precipm3))</code></pre>
-<pre><code>## `summarise()` has grouped output by &#39;ISO&#39;. You can override using the `.groups` argument.</code></pre>
-<pre class="r"><code>head(Precip_full, 20)</code></pre>
+    summarise(cubM_precip = sum(precipm3))
+    
+
+head(Precip_full, 20)</code></pre>
 <pre><code>## # A tibble: 20 x 3
 ## # Groups:   ISO [2]
 ##    ISO   year   cubM_precip
@@ -443,32 +527,58 @@ Precip_full &lt;- subset(Precip_full, year == &quot;1901&quot;| year == &quot;19
     merge(Precip_full)
 
 head(hum_pet_prec, 20)</code></pre>
-<pre><code>##    ISO year meanHumid   medHumid  meanPET   medPET cubM_precip
-## 1  AFG 1901 0.3098112 0.10820285 129.7540 120.1181  4742079443
-## 2  AFG 1910 0.4353440 0.06711189 127.6861 118.1674  4838264665
-## 3  AFG 1920 0.4936264 0.14116486 124.1570 116.2302  5408237035
-## 4  AFG 1930 0.4683085 0.12251677 124.0366 114.3907  5698403428
-## 5  AFG 1940 0.4366279 0.15014146 128.1637 118.9030  5582793294
-## 6  AFG 1950 0.4185068 0.07472489 123.8831 114.6067  4642584588
-## 7  AFG 1960 0.4734520 0.14374491 126.9085 113.9362  6425995881
-## 8  AFG 1970 0.2902650 0.03974031 131.1852 122.6750  3848655011
-## 9  AFG 1980 0.5540043 0.10091022 129.9422 121.8762  6672613814
-## 10 AFG 1985 0.3242643 0.03173479 128.5636 121.0789  3466655315
-## 11 AFG 1990 0.5684077 0.08214407 131.1680 121.6433  6528740110
-## 12 AFG 1995 0.4024470 0.12865202 127.7594 116.8021  5281551820
-## 13 AFG 2000 0.3382308 0.06243655 130.7447 125.5590  3749148981
-## 14 AFG 2005 0.4538191 0.08629691 129.9054 123.0064  5804305560
-## 15 AGO 1901 0.5994475 0.36326785 130.1853 127.7175 33490267561
-## 16 AGO 1910 0.6472696 0.35139067 129.9109 127.3433 35730139194
-## 17 AGO 1920 0.6186419 0.36348002 130.1215 127.6563 34442117935
-## 18 AGO 1930 0.4998664 0.20060892 130.1922 127.2893 27716419213
-## 19 AGO 1940 0.5599065 0.39997346 131.3033 128.6937 31907964442
-## 20 AGO 1950 0.7170074 0.40234797 130.3136 126.7413 39984632394</code></pre>
+<pre><code>##    ISO year meanHumid meanHumid2   medHumid  medHumid2  meanPET   medPET
+## 1  AFG 1901 0.3164009  0.3164009 0.10936816 0.10936816 129.7540 120.1181
+## 2  AFG 1910 0.4482611  0.4482611 0.06752126 0.06752126 127.6861 118.1674
+## 3  AFG 1920 0.5079800  0.5079800 0.14327394 0.14327394 124.1570 116.2302
+## 4  AFG 1930 0.4816392  0.4816392 0.12423132 0.12423132 124.0366 114.3907
+## 5  AFG 1940 0.4466534  0.4466534 0.15150698 0.15150698 128.1637 118.9030
+## 6  AFG 1950 0.4312293  0.4312293 0.07541167 0.07541167 123.8831 114.6067
+## 7  AFG 1960 0.4838602  0.4838602 0.14493131 0.14493131 126.9085 113.9362
+## 8  AFG 1970 0.2969480  0.2969480 0.04001866 0.04001866 131.1852 122.6750
+## 9  AFG 1980 0.5677986  0.5677986 0.10180562 0.10180562 129.9422 121.8762
+## 10 AFG 1985 0.3337708  0.3337708 0.03192286 0.03192286 128.5636 121.0789
+## 11 AFG 1990 0.5838181  0.5838181 0.08260461 0.08260461 131.1680 121.6433
+## 12 AFG 1995 0.4117753  0.4117753 0.12976010 0.12976010 127.7594 116.8021
+## 13 AFG 2000 0.3473658  0.3473658 0.06283388 0.06283388 130.7447 125.5590
+## 14 AFG 2005 0.4652833  0.4652833 0.08685392 0.08685392 129.9054 123.0064
+## 15 AGO 1901 0.6042197  0.6042197 0.36614818 0.36614818 130.1853 127.7175
+## 16 AGO 1910 0.6524822  0.6524822 0.35403530 0.35403530 129.9109 127.3433
+## 17 AGO 1920 0.6235842  0.6235842 0.36636010 0.36636010 130.1215 127.6563
+## 18 AGO 1930 0.5038793  0.5038793 0.20208361 0.20208361 130.1922 127.2893
+## 19 AGO 1940 0.5642753  0.5642753 0.40321646 0.40321646 131.3033 128.6937
+## 20 AGO 1950 0.7227210  0.7227210 0.40530933 0.40530933 130.3136 126.7413
+##    cubM_precip
+## 1   4742079443
+## 2   4838264665
+## 3   5408237035
+## 4   5698403428
+## 5   5582793294
+## 6   4642584588
+## 7   6425995881
+## 8   3848655011
+## 9   6672613814
+## 10  3466655315
+## 11  6528740110
+## 12  5281551820
+## 13  3749148981
+## 14  5804305560
+## 15 33490267561
+## 16 35730139194
+## 17 34442117935
+## 18 27716419213
+## 19 31907964442
+## 20 39984632394</code></pre>
 <pre class="r"><code>#write.csv(hum_pet_prec, &quot;/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv&quot;)</code></pre>
 <p>Wahoo!!</p>
+<p>We can remove the NO_LAND values now.</p>
+<pre class="r"><code>hum_pet_prec &lt;- hum_pet_prec[!is.na(hum_pet_prec$ISO),]</code></pre>
+<div id="references" class="section level1 unnumbered">
+<h1 class="unnumbered">References</h1>
 <div id="refs" class="references csl-bib-body hanging-indent">
 <div id="ref-neumannExploringGlobalIrrigation2011" class="csl-entry">
 Neumann, Kathleen, Elke Stehfest, Peter H. Verburg, Stefan Siebert, Christoph Müller, and Tom Veldkamp. 2011. <span>“Exploring Global Irrigation Patterns: <span>A</span> Multilevel Modelling Approach.”</span> <em>Agricultural Systems</em> 104 (9): 703–13. <a href="https://ideas.repec.org/a/eee/agisys/v104y2011i9p703-713.html">https://ideas.repec.org/a/eee/agisys/v104y2011i9p703-713.html</a>.
+</div>
 </div>
 </div>
 

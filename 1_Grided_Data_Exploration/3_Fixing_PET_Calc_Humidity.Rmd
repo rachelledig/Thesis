@@ -6,6 +6,11 @@ bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
 ---
 
 ```{r include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+
+```{r include=FALSE}
 library(dplyr)
 library(tidyr)
 ```
@@ -29,27 +34,24 @@ structure <- do.call("rbind", replicate(105, structure, simplify = FALSE))
 
 #add a col for year
 structure$year <- rep(1901:2005, each=67420)
+
+summary(structure)
 ```
+
+Structure has some NAs for ISO, I will remove them as they are not attatched to countries. But lets get everything sorted first.
 
 Ok so the game plan here: PET data has the structure [1:67420, 1:12, 1:105], meaning that it has a layer for every month of every year for all 67420 grid cells. Precipitation has the same structure. We want average humidity and average PET for a country for a year. 
 
 In @neumannExploringGlobalIrrigation2011, humidity is calculated as: $Precip/PET$. We shall follow the same logic here. First lets make a data frame that maintains all of the resolution contained in the mm/mo/year dataset of total_PET and prec_landuse
 
-```{r}
-PET <- as.data.frame(total_PET)
-rm(total_PET)
 
-Precip <- as.data.frame(prec_landuse)
-rm(prec_landuse)
-```
 
-Nothing has crashed yet, on thin ice though.  
-
-So PET and precip are in the same format. Can I just divide them element wise to calculate humidity? (I put the 1 in there so we don't get inf values :) )
+So PET and precip are in the same format. Can I just divide them element wise to calculate humidity? 
 
 ```{r}
-humidity <- Precip/(PET+1)
+humidity <- as.data.frame(prec_landuse/total_PET)
 ```
+Nothing has crashed yet, on thin ice though.    
 
 We need months.
 ```{r}
@@ -93,13 +95,32 @@ humidity_full$year <- as.factor(humidity_full$year)
 #i hate this solution. 
 humidity_full <- subset(humidity_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
 
+#had issues here with inf and NaN values
+#gonna make another col
+humidity_full <- humidity_full %>% 
+  mutate(Humidity2 = Humidity)
 
+infs <- humidity_full[is.infinite(humidity_full$Humidity),]
+nans <- humidity_full[is.nan(humidity_full$Humidity),]
+
+#just so i can keep track of which vals are inf
+humidity_full$Humidity[mapply(is.infinite, humidity_full$Humidity)] <- 0
+humidity_full$Humidity2[mapply(is.infinite, humidity_full$Humidity2)] <- NA
+
+#and the same for NaN values
+humidity_full$Humidity[mapply(is.nan, humidity_full$Humidity)] <- 0
+humidity_full$Humidity2[mapply(is.nan, humidity_full$Humidity2)] <- NA
+
+
+summary(humidity_full)
 ```
 
-lets do it again for PET only
+Gotten rid of the inf and NaN values, at least in the col Humidity, and have maintained them in Humidity2.
+
+Moving on to PET.
 
 ```{r}
-
+PET <- as.data.frame(total_PET)
 #repeating the col names for all 105 years
 colnames(PET) <- rep(mo, 105)
 #separating the dataframe every 32nd col, to create yearly data
@@ -134,11 +155,15 @@ PET_full$year <- as.factor(PET_full$year)
 #i hate this solution. 
 PET_full <- subset(PET_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
 
+summary(PET_full)
+
 ```
 
 And finally for precip. But as Fabian mentioned before, I need to sum to $m^3/year$. Knowing that $1 mm = 1 \frac{L}{m^2}$ we can get somewhere. Ill throw cell area in to the dataframe too.
 
 ```{r}
+Precip <- as.data.frame(prec_landuse)
+rm(prec_landuse)
 #repeating the col names for all 105 years
 colnames(Precip) <- rep(mo, 105)
 #separating the dataframe every 32nd col, to create yearly data
@@ -178,6 +203,8 @@ Precip_full$year <- as.factor(Precip_full$year)
 
 #i hate this solution. 
 Precip_full <- subset(Precip_full, year == "1901"| year == "1910"| year == "1920"| year == "1930"| year == "1940"| year == "1950"| year == "1960"| year == "1970"| year == "1980"| year == "1985"| year == "1990"| year == "1995"| year == "2000"| year == "2005")
+
+summary(Precip_full)
 ```
 
 Stragglers.
@@ -202,10 +229,11 @@ humidity_full <-
     humidity_full %>% 
     group_by(ISO, year) %>% 
     summarise(meanHumid = mean(Humidity), 
-              medHumid = median(Humidity))
+              meanHumid2 = mean(Humidity2, na.rm=TRUE), 
+              medHumid = median(Humidity),
+              medHumid2 = median(Humidity2, na.rm=TRUE))
 
-head(humidity_full, 20)
-    
+summary(humidity_full)
 ```
 
 Now, PET. Same procedure as humidity.
@@ -253,3 +281,11 @@ head(hum_pet_prec, 20)
 #write.csv(hum_pet_prec, "/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv")
 ```
 Wahoo!!
+
+We can remove the NO_LAND values now. 
+
+```{r}
+hum_pet_prec <- hum_pet_prec[!is.na(hum_pet_prec$ISO),]
+```
+
+# References
