@@ -109,7 +109,7 @@ curve(dlogis(x, location = 0, scale = 1))
 Ok, a similar thing is captured here as for the student t. This prior is weakly informing the model that the probability of 0s in our data set is closer to 0 than it is to 1, which seems a fair assumtion here.  
 
 We can probably do better than this, both interms of the priors and the brms formula specified. But lets check out the posterior, that has been transfromed.
-
+ 
 
 ## Posterior
 

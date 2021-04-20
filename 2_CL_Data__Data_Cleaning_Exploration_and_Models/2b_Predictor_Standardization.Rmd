@@ -1,0 +1,104 @@
+---
+title: "Country Level Predictor Standardization"
+author: "Rachel Ledig"
+date: "4/20/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+```{r include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(gridExtra)
+```
+
+
+```{r}
+aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
+```
+
+# Standardization
+
+We've got a lot of things here to log, scale or center. 
+
+What do I mean by scaling or centering? 
+
+**Scaling**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i}{max(y)}$   
+
+**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{sd(y)}$
+
+Why must I do this? 
+
+Well, a couple of reasons. First and foremost it makes the specification of priors easier, as the distribution of the parameter already centered around the mean and most of the data points are contained within one standard deviation to each side. Another reason is that it makes the interpretation of the coeficients a bit easier, as you can clearly tell which have positive or negative effects.
+
+Lets plot what these look like with out being transformed.
+```{r echo=FALSE}
+
+  ggplot(aei_no_std, aes(x=area_km, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Country Area (km^2)")
+
+
+  ggplot(aei_no_std, aes(x=population, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Total Population")
+
+  ggplot(aei_no_std, aes(x=income, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Income per Capita")
+
+
+  ggplot(aei_no_std, aes(x=GDPtot, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Total GDP")
+
+
+  ggplot(aei_no_std, aes(x=meanHumid, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Average Humidity")
+
+
+  ggplot(aei_no_std, aes(x=medHumid, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Median Humidity")
+
+
+  ggplot(aei_no_std, aes(x=meanPET, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Average PET")
+
+  ggplot(aei_no_std, aes(x=medPET, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Median PET")
+
+
+  ggplot(aei_no_std, aes(x=cubM_precip, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Precipitation m^3")
+
+  ggplot(aei_no_std, aes(x=rugged, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Ruggedness")
+```
+
+
+- _area_km_ - log and scale
+- _population_ - log and 
+- _income_
+- _GDP_
+- _Mean Humidity_ - Log and Center
+- _Median Humidity_ - Log and Center
+- _Mean PET_ - Log and Center
+- _Median PET_ - Log and Center
+- _Precip_ - Log and Center
+- _Ruggedness_ - Scale
+
+```{r}
+
+```

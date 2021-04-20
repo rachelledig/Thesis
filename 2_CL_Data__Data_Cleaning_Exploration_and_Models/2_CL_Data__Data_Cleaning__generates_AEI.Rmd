@@ -1,11 +1,17 @@
 ---
 title: "2 Country Level Data Cleaning"
+author: "Rachel Ledig"
+date: "April 10, 2021"
 output: 
   html_document:
     toc: true
     toc_float: true
 bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
 ---
+```{r include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
 
 ```{r Housekeeping, warning=FALSE, message=FALSE, include=FALSE}
 library(brms)
@@ -59,7 +65,7 @@ Lets do a short introduction to what we're working with here.
 
 # Target Variable  
   
-* $I$ - Irrigation Percentage - Downloaded the data from @siebertGlobalDataSet2015 data set in ha/country/timestep, then by dividing by the countries total area, the fraction of total land area that is irrigated in a given country is created. 
+* $I$ - Irrigation Percentage - Downloaded the data from @siebertGlobalDataSet2015 data set in ha/country/timestep, then by dividing by the countries total area, the fraction of total land area that is irrigated in a given country is created. I will be working with data from 1910-2005. The first years of @siebertGlobalDataSet2015 are a bit off, and some of my data derived from LPJmL output only starts in 1901. To avoid further conflicts my study period will be 1910-2005 for the country level model.
 ```{r Setting up Country Level df, warning=FALSE}
 aei <- as.data.frame(aei)
 
@@ -74,8 +80,11 @@ aei$aei_ha <- as.numeric(aei$aei_ha)
 aei$ISO <- as.factor(aei$ISO)
 aei$country <- as.factor(aei$country)
 
+#remove 1900
+aei <- subset(aei, year != "1900")
+
 #make a new col for year count
-aei$yearcount <- (aei$year - 1900)
+aei$yearcount <- (aei$year - 1910)
 
 #remove data for the total global irrigated area
 globeaei <- subset(aei, country == "WORLD")
@@ -111,21 +120,7 @@ str(countryarea)
 ```
 
 
-For some reason, the data from Worldbank on each countries area only starts in 1961. For this analysis, 1960 is needed. Country area from 1961 will be substituted for 1960, with the assumption that country area doesn't change drastically in one year (it doesn't).  
-
-```{r warning = FALSE}
-head(subset(countryarea, c(year == 1960 | year == 1961))) 
-
-#fixing 1960
-countryarea <-
-  countryarea %>% 
-  group_by(ISO) %>% 
-  fill(area_km, .direction = "up") %>% 
-  ungroup()
-
-```
-
-Merge the country area with the AEI df here.   
+For some reason, the data from Worldbank on each countries area only starts in 1961. For this analysis, data back to 1910 is needed. Country area from 1961 will be substituted for backwards, with the assumption that country area doesn't change drastically. Also here, merge the country area with the AEI df here.   
 
 ```{r Join CAr }
 #combine these data sets
@@ -165,10 +160,12 @@ Standardize or scale the area. Gotta flip it out and then remerge it.
 aei2<- 
   aei %>% 
   subset(!is.na(area_km)) %>% 
-  mutate(area_km_std = area_km/mean(area_km), area_km_sc = area_km/max(area_km))
+  mutate(area_km_std = scale(area_km), area_km_sc = area_km/max(area_km))
 
 aei <-
   merge(aei, aei2, all.x = TRUE)
+
+summary(aei)
 ```
 
 
@@ -204,7 +201,9 @@ According to the FAO [@walkerFAOIrrigationDrainage1989], the choice of which irr
 
 - Water Supply    
 
-  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In mm/country/year  
+  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In $m^3$/country/year  
+  - $H_c$ - Mean/Median Humidity - Translated output from LPJmL. Calculated from $Precip/PET$ for each grid cell then averaged (or median) for each country and year.  
+  - $E_c$ - Mean/Median Potential Evapotranspiration - Translated output from LPJmL. Average and median were taken for each country and year.
 - Crop Type  
 
   - Fraction of each crop grown per country -  Translated output from LPJmL. Individual crop fraction per grid cell multiplied by respective grid cell area, summed on a country level giving ha of each crop grown per country. This was then divided by total area of the country to achieve the % area occupied by a certain crop per country. Still working out how to work with this predictor. 
@@ -268,7 +267,7 @@ income$country <- as.factor(income$country)
 #log and standardize
 income$log_income <- log(income$income)
 income <- income %>% 
-  mutate(log_income_std = log_income / mean(log_income))
+  mutate(log_income_std = scale(log_income))
 
 #a summary
 summary(income)
@@ -307,7 +306,7 @@ population$year <- as.numeric(population$year)
 #log and standardize, same argument as income: population begets population
 population$log_pop <- log(population$population)
 population <- population %>% 
-  mutate(log_pop_std = log_pop / mean(log_pop))
+  mutate(log_pop_std = scale(log_pop))
 
 summary(population)
 
@@ -358,7 +357,7 @@ iso <- left_join(iso, population, by = "country")
 iso <- left_join(iso, income, by = c("country", "year"))
 
 # alright 197 countries! whoop!
-str(iso)
+summary(iso)
 
 rm(income, population)
 ```
@@ -366,9 +365,9 @@ rm(income, population)
 Now, join ISO to AEI with a merge (cause in this case the dynamics of merge are clearer for me). Hoping to preserve all data! 
 
 ```{r}
-aei <- merge(aei, iso, by = c("ISO","country", "year"), all.x = TRUE)
+aei2 <- merge(aei, iso, by = c("ISO","country", "year"), all.x = TRUE)
 rm(iso)
-str(aei) 
+summary(aei) 
 ```
 
 Solved the issue, 232 factors for both countries and ISO, meaning that we have been using the original AEI file from Siebert as the main data frame to join to. Good. This is the data that needs to be maintained, NAs can pop up in other cols but not irrigated area.   
@@ -388,7 +387,7 @@ aei2 <-
   aei %>% 
   select(ISO, year, log_gdp_tot) %>%
   na.omit() %>% 
-  mutate(log_gdp_tot_std = log_gdp_tot/mean(log_gdp_tot)) %>% 
+  mutate(log_gdp_tot_std = scale(log_gdp_tot)) %>% 
   select(ISO, year, log_gdp_tot_std)
 
 #now rejoin!
@@ -396,6 +395,7 @@ aei <-
   left_join(aei, aei2, by = c("ISO", "year"))
 
 str(aei)
+summary(aei)
 ```
 
 
