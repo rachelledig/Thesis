@@ -1,0 +1,398 @@
+---
+title: "Country Level Predictor Standardization"
+author: "Rachel Ledig"
+date: "4/20/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+```{r include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(gridExtra)
+library(plotly)
+```
+
+
+```{r data}
+aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
+```
+
+# Histograms
+
+We've got a lot of things here to log, scale or center. 
+
+What do I mean by scaling or centering? 
+
+**Scaling**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i}{max(y)}$   
+
+**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{sd(y)}$
+
+Why must I do this? 
+
+Well, a couple of reasons. First and foremost it makes the specification of priors easier, as the distribution of the parameter already centered around the mean and most of the data points are contained within one standard deviation to each side. Another reason is that it makes the interpretation of the coeficients a bit easier, as you can clearly tell which have positive or negative effects.
+
+Lets plot what these look like with out being transformed. These graphs are also interactive, feel free to click around.
+
+## Main Predictors
+```{r predictor graphs, echo=FALSE}
+area <- 
+  aei_no_std %>% 
+  drop_na(area_km) %>% 
+  ggplot(aes(x=area_km, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Country Area (km^2)")
+ggplotly(area)
+
+pop <-
+  aei_no_std %>% 
+  drop_na(population) %>% 
+  ggplot(aes(x=population, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Total Population")
+ggplotly(pop)
+
+income <-
+  aei_no_std %>% 
+  drop_na(income) %>% 
+  ggplot(aes(x=income, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Income per Capita")
+ggplotly(income)
+
+GDP <-
+  aei_no_std %>% 
+  drop_na(GDPtot) %>% 
+  ggplot(aes(x=GDPtot, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Total GDP")
+ggplotly(GDP)
+
+avghum <-
+  aei_no_std %>% 
+  drop_na(meanHumid) %>% 
+  ggplot(aes(x=meanHumid, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Average Humidity")
+ggplotly(avghum)
+
+medhum <-
+  aei_no_std %>% 
+  drop_na(medHumid) %>% 
+  ggplot(aes(x=medHumid, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Median Humidity")
+ggplotly(medhum)
+
+avgpet <-
+  aei_no_std %>% 
+  drop_na(meanPET) %>% 
+  ggplot(aes(x=meanPET, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Average PET")
+ggplotly(avgpet)
+
+medpet <-
+  aei_no_std %>% 
+  drop_na(medPET) %>% 
+  ggplot(aes(x=medPET, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Median PET")
+ggplotly(medpet)
+
+precip <-
+  aei_no_std %>% 
+  drop_na(cubM_precip) %>% 
+  ggplot(aes(x=cubM_precip, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Precipitation m^3")
+ggplotly(precip)
+
+rugged <-
+  aei_no_std %>% 
+  drop_na(rugged) %>% 
+  ggplot(aes(x=rugged, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Ruggedness") 
+ggplotly(rugged)
+  
+```
+
+Some things of note here: I will be using income instead of total GDP, median Humidity and PET instead of Average, and Humidity with the Inf/NaN values replaced.
+
+A lot of things here are skewed left, which is to be expected as majority of countries are smaller rather than bigger in all aspects. There is little noticeable difference between the regions in many of the predictor variables. Income has trends as you would expect, with Europe having higher incomes and Sub Saharan Africa having lower, with some of the high outliers being from North Africa and the Middle East.There are bigger regional differences in Humidity and PET (remember these two are related $Humidity = Precip/PET$). Precip looks similar to Humidity (again, similarities were expected). Ruggedness is tough to find regional trends visually.
+
+## Crop Fractions
+
+What about crop fractions?
+
+```{r temperate cereals, echo=FALSE}
+temp_cereals_rain <- 
+  aei_no_std %>% 
+  drop_na(Temperate_cereals) %>% 
+  plot_ly(type = 'histogram', x=~Temperate_cereals, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Temprate Cereals - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+temp_cereals_irr <-
+  aei_no_std %>% 
+  drop_na(Temperate_cereals.1) %>% 
+  plot_ly(type = 'histogram', x=~Temperate_cereals.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Temprate Cereals - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(temp_cereals_rain, showlegend = T), temp_cereals_irr, nrows = 2)
+```
+```{r rice, echo=FALSE}
+rice_rain <- 
+  aei_no_std %>% 
+  drop_na(Rice) %>% 
+  plot_ly(type = 'histogram', x=~Rice, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Rice - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+rice_irr <-
+  aei_no_std %>% 
+  drop_na(Rice.1) %>% 
+  plot_ly(type = 'histogram', x=~Rice.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Rice - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(rice_rain, showlegend = T), rice_irr, nrows = 2)
+```
+
+```{r maize, echo=FALSE}
+maize_rain <- 
+  aei_no_std %>% 
+  drop_na(Maize) %>% 
+  plot_ly(type = 'histogram', x=~Maize, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Maize - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+maize_irr <-
+  aei_no_std %>% 
+  drop_na(Maize.1) %>% 
+  plot_ly(type = 'histogram', x=~Maize.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Maize - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(maize_rain, showlegend = T), maize_irr, nrows = 2)
+```
+
+```{r tropical cereals, echo=FALSE}
+trop_cereals_rain <- 
+  aei_no_std %>% 
+  drop_na(Tropical_cereals) %>% 
+  plot_ly(type = 'histogram', x=~Tropical_cereals, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Tropical Cereals - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+trop_cereals_irr <-
+  aei_no_std %>% 
+  drop_na(Tropical_cereals.1) %>% 
+  plot_ly(type = 'histogram', x=~Tropical_cereals.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Tropical Cereals - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(trop_cereals_rain, showlegend = T), trop_cereals_irr, nrows = 2)
+```
+
+```{r pulses, echo=FALSE}
+pulses_rain <- 
+  aei_no_std %>% 
+  drop_na(Pulses) %>% 
+  plot_ly(type = 'histogram', x=~Pulses, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Pulses - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+pulses_irr <-
+  aei_no_std %>% 
+  drop_na(Pulses.1) %>% 
+  plot_ly(type = 'histogram', x=~Pulses.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Pulses - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(pulses_rain, showlegend = T), pulses_irr, nrows = 2)
+```
+
+```{r temperate roots, echo=FALSE}
+temp_roots_rain <- 
+  aei_no_std %>% 
+  drop_na(Temperate_roots) %>% 
+  plot_ly(type = 'histogram', x=~Temperate_roots, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Temperate_roots - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+temp_roots_irr <-
+  aei_no_std %>% 
+  drop_na(Temperate_roots.1) %>% 
+  plot_ly(type = 'histogram', x=~Temperate_roots.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Temperate_roots - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(temp_roots_rain, showlegend = T), temp_roots_irr, nrows = 2)
+```
+
+```{r tropical roots, echo=FALSE}
+trop_roots_rain <- 
+  aei_no_std %>% 
+  drop_na(Tropical_roots) %>% 
+  plot_ly(type = 'histogram', x=~Tropical_roots, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Tropical_roots - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+trop_roots_rain
+```
+
+```{r sunflower, echo=FALSE}
+sunflower_rain <- 
+  aei_no_std %>% 
+  drop_na(Sunflower) %>% 
+  plot_ly(type = 'histogram', x=~Sunflower, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Sunflower - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+sunflower_irr <-
+  aei_no_std %>% 
+  drop_na(Sunflower.1) %>% 
+  plot_ly(type = 'histogram', x=~Sunflower.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Sunflower - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(sunflower_rain, showlegend = T), sunflower_irr, nrows = 2)
+```
+
+```{r soy, echo=FALSE}
+soy_rain <- 
+  aei_no_std %>% 
+  drop_na(Soybean) %>% 
+  plot_ly(type = 'histogram', x=~Soybean, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Soybean - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+soy_irr <-
+  aei_no_std %>% 
+  drop_na(Soybean.1) %>% 
+  plot_ly(type = 'histogram', x=~Soybean.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Soybean - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(soy_rain, showlegend = T), soy_irr, nrows = 2)
+```
+
+```{r groundnuts, echo=FALSE}
+groundnuts_rain <- 
+  aei_no_std %>% 
+  drop_na(Groundnuts) %>% 
+  plot_ly(type = 'histogram', x=~Groundnuts, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Groundnuts - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+groundnuts_irr <-
+  aei_no_std %>% 
+  drop_na(Groundnuts.1) %>% 
+  plot_ly(type = 'histogram', x=~Groundnuts.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Groundnuts - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(groundnuts_rain, showlegend = T), groundnuts_irr, nrows = 2)
+```
+
+```{r rapeseed, echo=FALSE}
+rapeseed_rain <- 
+  aei_no_std %>% 
+  drop_na(Rapeseed) %>% 
+  plot_ly(type = 'histogram', x=~Rapeseed, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Rapeseed - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+rapeseed_irr <-
+  aei_no_std %>% 
+  drop_na(Rapeseed.1) %>% 
+  plot_ly(type = 'histogram', x=~Rapeseed.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Rapeseed - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(rapeseed_rain, showlegend = T), rapeseed_irr, nrows = 2)
+```
+```{r sugar, echo=FALSE}
+sugar_rain <- 
+  aei_no_std %>% 
+  drop_na(Sugarcane) %>% 
+  plot_ly(type = 'histogram', x=~Sugarcane, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Sugarcane - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+sugar_irr <-
+  aei_no_std %>% 
+  drop_na(Sugarcane.1) %>% 
+  plot_ly(type = 'histogram', x=~Sugarcane.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Sugarcane - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(sugar_rain, showlegend = T), sugar_irr, nrows = 2)
+```
+
+
+
+```{r others, echo=FALSE}
+others_rain <- 
+  aei_no_std %>% 
+  drop_na(Others) %>% 
+  plot_ly(type = 'histogram', x=~Others, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Others - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+others_irr <-
+  aei_no_std %>% 
+  drop_na(Others.1) %>% 
+  plot_ly(type = 'histogram', x=~Others.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Others - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(others_rain, showlegend = T), others_irr, nrows = 2)
+```
+```{r managed grass, echo=FALSE}
+managedgrass_rain <- 
+  aei_no_std %>% 
+  drop_na(Managed_Grasslands) %>% 
+  plot_ly(type = 'histogram', x=~Managed_Grasslands, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 1.05, text = "Managed_Grasslands - Rainfed", showarrow = F, 
+xref='paper', yref='paper')) 
+
+managedgrass_irr <-
+  aei_no_std %>% 
+  drop_na(Managed_Grasslands.1) %>% 
+  plot_ly(type = 'histogram', x=~Managed_Grasslands.1, color = ~six_regions, legendgroup=~six_regions) %>% 
+  layout(annotations = list(x = 0.2 , y = 0.95, text = "Managed_Grasslands - Irrigated", showarrow = F, 
+xref='paper', yref='paper')) 
+
+subplot(style(managedgrass_rain, showlegend = T), managedgrass_irr, nrows = 2)
+```
+# Standardization
+
+- _area_km_ - log and scale
+- _population_ - log and 
+- _income_
+- _GDP_
+- _Mean Humidity_ - Log and Center
+- _Median Humidity_ - Log and Center
+- _Mean PET_ - Log and Center
+- _Median PET_ - Log and Center
+- _Precip_ - Log and Center
+- _Ruggedness_ - Scale
+
+```{r}
+aei_std <-
+  aei_no_std %>% 
+  drop_na(c(8,17:26, 29:55)) %>% 
+  mutate(rugged = rugged/(max(rugged))) %>% 
+  mutate(across(c(8,17:26, 29:55), scale, scale = TRUE))
+  
+```

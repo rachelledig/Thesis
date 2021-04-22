@@ -1,0 +1,247 @@
+---
+title: "Predictor Variable Investigation"
+author: "Rachel Ledig"
+date: "4/21/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r include=FALSE}
+library(corrmorant)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(dagitty)
+library(ggdag)
+```
+
+### Data
+```{r}
+aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
+```
+
+
+
+## Lat, Lon, Pop, Income, GDP, Rugged
+
+Here, population, income, and total GDP have been logged as the idea is that "wealth begets wealth" therefore the wealth accumulates exponentially. The same augment holds true for population. Also, the distributions of these predictors were so right skewed that little response was registered. I think I might do the same for my response variable (irrgation perc) as the idea still holds here, the more irrigation there is, the more irrigation there will be, meaning that it too exponentially. 
+ 
+```{r echo=FALSE}
+aei_no_std %>% 
+  select(irrperc, Latitude, Longitude, population, income, GDPtot,rugged) %>% 
+  drop_na() %>% 
+  mutate_at(c("irrperc", "population", "income", "GDPtot"), log) %>% 
+  ggcorrm(., mapping = aes(), corr_method = c("spearman")) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+  
+aei_no_std %>% 
+  select(irrperc, four_regions, Latitude, Longitude, population, income, GDPtot, rugged) %>% 
+  drop_na() %>% 
+  mutate_at(c("irrperc","population", "income", "GDPtot"), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions), corr_method = c("spearman")) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+```
+Ok, just gennerally looking at things here, Latitude seems to have something to do with irrigation, as does population. Income and GDP seem to play a role here, but I must choose one, as income and population are used to calculate total GDP I cannot include both income and GDP as GDP would then become a confounder. 
+```{r}
+dagify(Irr ~ inc,
+       Irr ~ pop,
+       GDP ~ pop + inc,
+       Irr ~ GDP,
+       outcome = "Irr") %>% 
+  ggdag()
+```
+
+From a theory perspective, income would make more sense to use, as it is farmers that decide to irrigate, not countries (this assumption could be challenged). I will begin modelling with income, just to figure it out. 
+
+## Water Supply
+
+With water related issues, I am taking the log of irrperc for the same argument above. I have left Humidity and PET alone, as I cant see any logical reason to take the log of them. Humidity is calculated using PET, and these two are very related. From these correlation plots PET seems to be more correlated with irrigation fraction but, again, from a theoretical stand point humidity should reflect the reality of a country much better, as PET is just the potential for evapotransipration, and humidity as it is a function of actual precipitation and potential ET, the result should be much more grounded in reality. 
+
+In relationship to the precipitation, when the log is taken of the precipitation and irrigaion they seem to be slightly correlated, when both are in the original scale, no correlation can be seen from these plots. 
+
+```{r echo=FALSE}
+aei_no_std %>% 
+  select(irrperc, medHumid, medPET, cubM_precip) %>% 
+  drop_na() %>% 
+  mutate_at(c("irrperc", "cubM_precip"), log) %>% 
+  ggcorrm(., mapping = aes(), corr_method = c("kendall")) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, cubM_precip) %>% 
+  drop_na() %>% 
+  mutate_at(c("irrperc", "cubM_precip"), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions), corr_method = c("kendall")) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+```
+
+
+## Crops
+
+All of the crop fractions have been logged, as they were heavily skewed to the right. 
+
+```{r echo=FALSE}
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(29, 43)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(30,44)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(31,45)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(32, 46)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(33, 47)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(34,48)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(35)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(36, 49)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(37, 50)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(38,51)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(39,52)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(40, 53)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(41, 54)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+
+aei_no_std %>% 
+  select(irrperc, four_regions, medHumid, medPET, c(42, 55)) %>% 
+  drop_na() %>% 
+  mutate_at(vars(5:6), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  lotri(geom_point(alpha = 0.5)) +
+  utri_corrtext(nrow = 4, squeeze = 0.6) +
+  dia_names(y_pos = 0.15, size = 2) +
+  dia_density(lower = 0.3, color = 1)
+```
+
+
+

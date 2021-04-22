@@ -1,0 +1,785 @@
+---
+title: "2 Country Level Data Cleaning"
+author: "Rachel Ledig"
+date: "April 10, 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+```{r include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+
+```{r Housekeeping, warning=FALSE, message=FALSE, include=FALSE}
+library(brms)
+library(rstan)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(ggplot2)
+library(rethinking)
+library(purrr)
+library(gganimate)
+library(wbstats)
+library(viridis)
+library(tm)
+library(wbstats)
+library(tibble)
+library(stringr)
+library(distill)
+```
+
+
+Here is the data necessary for this script:
+```{r}
+#original Siebert Data
+aei <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Data/SiebertData/HID_v10/Country_tenyear_ha.csv")
+#import the data set with total country area, this comes from the Worldbank
+countryarea <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Data/LandArea/LandArea.csv")
+#the ISO codes and regional data from Gapminder
+iso <- read.csv2(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/GAPminder_ISOcodes.csv")
+#income here is 2011 usd, taken from Gapminder
+income <- read.csv(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_income_per_person_gdppercapita_ppp_inflation_adjusted.csv")
+#population data also taken from Gapminder
+population <- read.csv(
+  "/Volumes/RachelExternal/Thesis/Thesis/Data/Gapminder_population_total.csv")
+#cft taken from LPJmL output
+cft <- read.csv(
+  '/Volumes/RachelExternal/Thesis/Thesis/Data/cft_and_precipdata.csv')
+#humidity, PET, and precipitation
+hum_PET_prec <- read.csv(
+  '/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv')
+
+```
+
+
+
+Lets do a short introduction to what we're working with here. 
+
+# Target Variable  
+  
+* $I$ - Irrigation Percentage - Downloaded the data from @siebertGlobalDataSet2015 data set in ha/country/timestep, then by dividing by the countries total area, the fraction of total land area that is irrigated in a given country is created. I will be working with data from 1910-2005. The first years of @siebertGlobalDataSet2015 are a bit off, and some of my data derived from LPJmL output only starts in 1901. To avoid further conflicts my study period will be 1910-2005 for the country level model.
+```{r Setting up Country Level df, warning=FALSE}
+aei <- as.data.frame(aei)
+
+#rename the cols so that I can use them as number
+colnames(aei) <- c("country", "ISO", "ID", "1900", "1910","1920","1930","1940","1950","1960","1970","1980","1985","1990","1995","2000","2005")
+
+#tidying data to long format
+aei <- pivot_longer(aei,cols = 4:17, names_to = "year", values_to = "aei_ha")
+aei$aei_ha <- removePunctuation(aei$aei_ha)
+aei$year <- as.numeric(aei$year)
+aei$aei_ha <- as.numeric(aei$aei_ha)
+aei$ISO <- as.factor(aei$ISO)
+aei$country <- as.factor(aei$country)
+
+#remove 1900
+aei <- subset(aei, year != "1900")
+
+#make a new col for year count
+aei$yearcount <- (aei$year - 1910)
+
+#remove data for the total global irrigated area
+globeaei <- subset(aei, country == "WORLD")
+aei= aei[!aei$country == "WORLD",]
+
+str(aei)
+```
+
+      
+Added to this to be able to calculate the % of land irrigated per country we need the country area. This data is taken from Worldbank.  
+
+```{r message=FALSE, warning=FALSE}
+#removing extra cols
+countryarea <- countryarea[-c(265:270), ]
+countryarea <- countryarea[, -c(1, 3:4)]
+
+#fix the col names (in the two days since i found this little for loop I learned how to do this faster!)
+for ( col in 2:ncol(countryarea)){
+    colnames(countryarea)[col] <-  sub("X", "", colnames(countryarea)[col])
+}
+remove(col)
+
+#making long data
+countryarea <- 
+  countryarea %>%  
+  pivot_longer(!Country.Code, names_to = "year", values_to = "area_km") %>% 
+  rename(ISO = Country.Code)
+
+#fixing variable types
+countryarea$ISO <- as.factor(countryarea$ISO)
+countryarea$year <- as.numeric(countryarea$year)
+str(countryarea)
+```
+
+
+For some reason, the data from Worldbank on each countries area only starts in 1961. For this analysis, data back to 1910 is needed. Country area from 1961 will be substituted for backwards, with the assumption that country area doesn't change drastically. Also here, merge the country area with the AEI df here.   
+
+```{r Join CAr }
+#combine these data sets
+aei <- aei %>% merge(y = countryarea, by.x = c("ISO", "year"), all.x = TRUE)
+
+#going to do the same thing as before so that I have area for all the other years
+#assuming that political borders are the same as in the year 2005
+aei <-
+  aei %>% 
+  group_by(ISO) %>% 
+  fill(area_km, .direction = "up") %>% 
+  ungroup()
+
+rm(countryarea)
+head(aei)
+```
+
+Some countries also have no area value. I'll go through and see if any of the countries with missing area values have non zero AEI_ha. If so, I'll replace them, as they didn't come through with the WorldBank data set but are online. Copying and pasting from various sources should be fine.
+
+
+```{r Fixes for CAr}
+#checking for countries with NA values in their area_km col
+#looking primarily for countries that have non 0 AEI_ha
+aei[is.na(aei$area_km),]
+                
+#fixing counties with no area
+aei$area_km[which(aei$ISO == "GUF")] <- 83534 #French Guiana from Britannica
+aei$area_km[which(aei$ISO == "GLP")] <- 1630 #Guadeloupe from Britannica 
+aei$area_km[which(aei$ISO == "MTQ")] <- 1128 # Martinique from Britannica
+aei$area_km[which(aei$ISO == "REU")] <- 2512 #Reunion from Britannica
+aei$area_km[which(aei$ISO == "SMK")] <- 13812 + 10905 + 77589 #Montenegro + Kosovo + Serbia from Britannica
+aei$area_km[which(aei$ISO == "TWN")] <- 35980 #Taiwan from CIA.gov
+aei$area_km[which(aei$ISO == "SDN")] <- 1882000 #Sudan from UNDP
+```
+Standardize or scale the area. Gotta flip it out and then remerge it. 
+```{r}
+aei2<- 
+  aei %>% 
+  subset(!is.na(area_km)) %>% 
+  mutate(area_km_std = scale(area_km), area_km_sc = area_km/max(area_km))
+
+aei <-
+  merge(aei, aei2, all.x = TRUE)
+
+summary(aei)
+```
+
+
+Now, transform the AEI_ha to $km^2$ and divide to get the % of total country area that is equipped for irrigation. There are still some countries that have 0 AEI_ha and no area_km value. I think I will assign the irrfrac/perc 0 to those countries, but lets wait a little while to do that, most are islands.  
+
+```{r Creating Target Variable}
+aei <- aei %>% mutate(irrperc = ((aei_ha/100)/area_km)*100, irrfrac = ((aei_ha/100)/area_km))
+```
+
+Here is a quick histogram of the target variable. A lot of 0s. 
+
+```{r Hist of TVar}
+hist(aei$irrperc, breaks = 200)
+```
+
+***
+
+# Chosen Predictor Variables  
+
+According to the FAO [@walkerFAOIrrigationDrainage1989], the choice of which irrigation, and by proxy whether to irrigate or not, comes from six factors. The predictor that will be used for this analysis are listed below:  
+
+- Economic 
+
+  - $M_c$ - GDP per Capita - Each country's GDP per Capita from Gapminder, which collects data from the UN and the Maddison project. This variable will be logged because as stated in *Statistical Rethinking* [@mcelreathStatisticalRethinkingBayesian2015] McElreath states (pg. 239), "We use the logarithm of it, because the logarithm of GDP is the *magnitude* of GDP. Since wealth generates wealth, it tends to be exponentially related to anything that increases it"
+  
+- Topographical   
+
+  - $Ru_c$ - Represented here using the "rugged" data set from rethinking, in which a coeff of ruggedness for each country was assigned. This data was taken from @rileyTerrainRuggednessIndex1999
+  
+- Soil Type  
+
+  - This will not be included in this analysis. Although, it could be useful there is no good way to quantify soil type on a country level basis. This will be included in the grid cell model, as regions can be easily integrated with the grid cell structure. 
+
+- Water Supply    
+
+  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In $m^3$/country/year  
+  - $H_c$ - Mean/Median Humidity - Translated output from LPJmL. Calculated from $Precip/PET$ for each grid cell then averaged (or median) for each country and year.  
+  - $E_c$ - Mean/Median Potential Evapotranspiration - Translated output from LPJmL. Average and median were taken for each country and year.
+- Crop Type  
+
+  - Fraction of each crop grown per country -  Translated output from LPJmL. Individual crop fraction per grid cell multiplied by respective grid cell area, summed on a country level giving ha of each crop grown per country. This was then divided by total area of the country to achieve the % area occupied by a certain crop per country. Still working out how to work with this predictor. 
+
+- Social Influences  
+
+  - $P_c$ - Total Population - Each country's total population on a yearly basis. Taken from Gapminder. Again, this will be logged, due to the same argument for GDP, and centered.
+  
+All variables will be scaled or centered. 
+
+
+First, the ISO codes and Regions to be able to hold some structure.  
+
+```{r}
+
+iso <- iso[, -c(2,7,10,12,13)] #removing extra info
+
+#renaming some cols
+iso <- 
+  iso %>% 
+  rename(ISO = GEO, country = name)
+
+#fixing the variable types
+iso$ISO <- as.factor(iso$ISO)
+iso$country <- as.factor(iso$country)
+iso$four_regions <- as.factor(iso$four_regions)
+iso$eight_regions <- as.factor(iso$eight_regions)
+iso$six_regions <- as.factor(iso$six_regions)
+iso$six_regions <- as.factor(iso$six_regions)
+iso$World.bank.region <- as.factor(iso$World.bank.region)
+str(iso)
+
+#past me helping future me
+#fixing Macedonia, FYR to North Macedonia
+iso$country <- as.character(iso$country)
+iso[iso == "Macedonia, FYR"] <- "North Macedonia"
+iso$country <- as.factor(iso$country)
+```
+Cool, we have multiple regions here that we could use in the future for some multilevel business. Also, latitude and longitude is here, which we can also try later. Obviously these lat and lon measurements will mean nothing for a country like China or the USA, but they are nice to have.    
+
+
+## Income
+
+Income data is coming from Gapminder, as they have put real effort in to filling all the gaps in income and population for the last 150 years. Income is in terms of the 2011 USD and is inflation adjusted.  
+
+```{r}
+
+income <- income[, c(1, 102:207)] #removing extra years
+
+#making long data
+income <- 
+  income %>%  
+  pivot_longer(!country, names_to = "year", values_to = "income") 
+
+#still have the xs there
+income$year <- str_remove_all(income$year, "[X]")
+#transformation of the variable types
+income$year <- as.numeric(income$year)
+income$country <- as.factor(income$country)
+
+#log and standardize
+income$log_income <- log(income$income)
+income <- income %>% 
+  mutate(log_income_std = scale(log_income))
+
+#a summary
+summary(income)
+
+#past me helping future me again
+#fixing Eswatini to Swaziland (even though Eswatini is the correct name)
+income$country <- as.character(income$country)
+income[income == "Eswatini"] <- "Swaziland"
+income$country <- as.factor(income$country)
+
+```
+
+Logging and standardizing is necessary here. Again, the argument is that wealth begets wealth, so income is logarithmic. From there just center the mean at 0 with a stdev of 1 for standardization.  
+
+
+
+## Population
+
+Population data is also taken from Gapminder. The same process of logging and standardizing will be carried out here. 
+
+```{r}
+#removing extra years
+population <- population[, c(1, 102:207)] 
+#making longer data
+population <- 
+  population %>%  
+  pivot_longer(!country, names_to = "year", values_to = "population") 
+
+#removing the Xs from the year strings
+population$year <- str_remove_all(population$year, "[X]")
+
+#fixing variable types
+population$country <- as.factor(population$country)
+population$year <- as.numeric(population$year)
+
+#log and standardize, same argument as income: population begets population
+population$log_pop <- log(population$population)
+population <- population %>% 
+  mutate(log_pop_std = scale(log_pop))
+
+summary(population)
+
+#annnd again...
+#fixing Eswatini to Swaziland (even though Eswatini is the correct name)
+population$country <- as.character(population$country)
+population[population == "Eswatini"] <- "Swaziland"
+population$country <- as.factor(population$country)
+```
+
+So some issues arise here with the fact that we have different country data for each dataframe. Sometimes the names are capitalized, other times there are spaces instead of underscores. By using `anti_join()` I can see what won't be joined. Also this goes both ways, `anti_join()` returns rows of x that do not have a match in y.  
+
+```{r}
+isopop <- anti_join(iso, population, by = "country")
+summary(isopop)
+
+popiso <- anti_join(population, iso, by = "country")
+summary(popiso)
+```
+
+Went back up and solved the issue of North Macedonia and Swaziland. There are still issues with Hong Kong and Taiwan as they are part of China. ISO has data for Hong Kong and Taiwan that population does not have.  I wont include them in the HTML but they are in the code.  
+
+```{r include=FALSE}
+isoinc <- anti_join(iso, income, by = "country")
+summary(isoinc)
+
+inciso <- anti_join(income, iso, by = "country")
+summary(inciso)
+```
+
+
+```{r include=FALSE}
+popinc <- anti_join(population, income, by = "country")
+summary(popinc)
+
+incpop <- anti_join(income, population, by = "country")
+summary(incpop)
+```
+
+
+Alright, so I will left join ISO and population then again with income? Not sure that this will solve my problem, but lets try it.
+```{r}
+#remove all these rando tables
+rm(popinc, inciso, incpop, popiso, isoinc, isopop)
+
+#
+iso <- left_join(iso, population, by = "country")
+iso <- left_join(iso, income, by = c("country", "year"))
+
+# alright 197 countries! whoop!
+summary(iso)
+
+rm(income, population)
+```
+
+Now, join ISO to AEI with a merge (cause in this case the dynamics of merge are clearer for me). Hoping to preserve all data! 
+
+```{r}
+aei2 <- merge(aei, iso, by = c("ISO","country", "year"), all.x = TRUE)
+rm(iso)
+summary(aei) 
+```
+
+Solved the issue, 232 factors for both countries and ISO, meaning that we have been using the original AEI file from Siebert as the main data frame to join to. Good. This is the data that needs to be maintained, NAs can pop up in other cols but not irrigated area.   
+
+But I still would like total GDP for later so lets transform using population. 
+```{r}
+aei$income <- as.numeric(aei$income) 
+
+#mutating for total GDP and log GDP
+aei <-
+  aei %>%
+  mutate(GDPtot = income*population) %>%
+  mutate(log_gdp_tot = log(GDPtot)) 
+
+#creating the df to standardize without the NAs
+aei2 <-
+  aei %>% 
+  select(ISO, year, log_gdp_tot) %>%
+  na.omit() %>% 
+  mutate(log_gdp_tot_std = scale(log_gdp_tot)) %>% 
+  select(ISO, year, log_gdp_tot_std)
+
+#now rejoin!
+aei <- 
+  left_join(aei, aei2, by = c("ISO", "year"))
+
+str(aei)
+summary(aei)
+```
+
+
+Finally, lets check out a quick histogram of GDP and pop,
+```{r}
+hist(aei$log_gdp_tot_std, breaks = 100)
+```
+
+```{r}
+hist(aei$log_pop_std, breaks = 100)
+```
+
+
+### Dealing with Some Issues
+
+There are a lot of countries that have no data for the regions, but have non zero irrperc/frac which I will use in further analysis, so we need to replace the regions. 
+
+```{r}
+#view which countries don't have regions but have non zero irrprec
+na_regions <- aei[is.na(aei$four_regions),]
+
+#Aruba
+aei <- aei %>%
+  mutate(four_regions = replace(four_regions, ISO == 'ABW', 'americas'), 
+         six_regions = replace(six_regions, ISO == 'ABW', 'america'), 
+         eight_regions = replace(eight_regions, ISO == 'ABW', 'america_north')) %>%
+#american samoa
+  mutate(four_regions = replace(four_regions,ISO == 'ASM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'ASM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'ASM', 'east_asia_pacific')) %>%
+#bermuda
+  mutate(four_regions = replace(four_regions,ISO == 'BMU', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'BMU', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'BMU', 'america_north')) %>% 
+#cote d'ivoire
+  mutate(four_regions = replace(four_regions,ISO == 'CIV', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'CIV', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'CIV', 'africa_sub_saharan')) %>% 
+#democratic republic of congo
+  mutate(four_regions = replace(four_regions,ISO == 'COD', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'COD', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'COD', 'africa_sub_saharan')) %>% 
+#republic of congo
+  mutate(four_regions = replace(four_regions,ISO == 'COG', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'COG', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'COG', 'africa_sub_saharan')) %>% 
+#cayman islands
+  mutate(four_regions = replace(four_regions,ISO == 'CYM', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'CYM', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'CYM', 'america_north')) %>%
+#Faroe islands
+  mutate(four_regions = replace(four_regions,ISO == 'FRO', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'FRO', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'FRO', 'europe_west')) %>%
+#micronesia
+  mutate(four_regions = replace(four_regions,ISO == 'FSM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'FSM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'FSM', 'east_asia_pacific')) %>%
+#gibraltar
+  mutate(four_regions = replace(four_regions,ISO == 'GIB', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'GIB', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'GIB', 'europe_west')) %>%
+#Guadeloupe
+  mutate(four_regions = replace(four_regions,ISO == 'GLP', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'GLP', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'GLP', 'america_north')) %>%
+#greenland
+  mutate(four_regions = replace(four_regions,ISO == 'GRL', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'GRL', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'GRL', 'europe_west')) %>%
+#french Guiana 
+  mutate(four_regions = replace(four_regions,ISO == 'GUF', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'GUF', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'GUF', 'america_south')) %>%
+#guam
+  mutate(four_regions = replace(four_regions,ISO == 'GUM', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'GUM', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'GUM', 'east_asia_pacific')) %>%
+#Kyrgyzstan
+  mutate(four_regions = replace(four_regions,ISO == 'KGZ', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'KGZ', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'KGZ', 'asia_west')) %>%
+#laos
+  mutate(four_regions = replace(four_regions,ISO == 'LAO', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'LAO', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'LAO', 'east_asia_pacific')) %>%
+#Macedonia
+  mutate(four_regions = replace(four_regions,ISO == 'MKD', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'MKD', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'MKD', 'europe_east')) %>%
+#Martinique 
+  mutate(four_regions = replace(four_regions,ISO == 'MTQ', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'MTQ', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'MTQ', 'america_north')) %>%
+#new caledonia
+  mutate(four_regions = replace(four_regions,ISO == 'NCL', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'NCL', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'NCL', 'east_asia_pacific')) %>%
+#puerto rico
+ mutate(four_regions = replace(four_regions,ISO == 'PRI', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'PRI', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'PRI', 'america_north')) %>%
+#Palestine (West Bank + Gaza strip)
+ mutate(four_regions = replace(four_regions,ISO == 'PSE', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'PSE', 'middle_east_north_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'PSE', 'asia_west')) %>%
+#french Polynesia
+  mutate(four_regions = replace(four_regions,ISO == 'PYF', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'PYF', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'PYF', 'east_asia_pacific')) %>%
+#Reunion
+  mutate(four_regions = replace(four_regions,ISO == 'REU', 'africa'), 
+         six_regions = replace(six_regions,ISO == 'REU', 'sub_saharan_africa'), 
+         eight_regions = replace(eight_regions,ISO == 'REU', 'africa_sub_saharan')) %>%
+#Serbia, Montenegro, Kosovo
+  mutate(four_regions = replace(four_regions,ISO == 'SMK', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'SMK', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'SMK', 'europe_east')) %>%
+#Slovakia
+  mutate(four_regions = replace(four_regions,ISO == 'SVK', 'europe'), 
+         six_regions = replace(six_regions,ISO == 'SVK', 'europe_central_asia'), 
+         eight_regions = replace(eight_regions,ISO == 'SVK', 'europe_east')) %>%
+#Turks and Caicos Islands
+  mutate(four_regions = replace(four_regions,ISO == 'TCA', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'TCA', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'TCA', 'america_north')) %>%
+#East Timor
+  mutate(four_regions = replace(four_regions,ISO == 'TLS', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'TLS', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'TLS', 'east_asia_pacific')) %>%
+#taiwan
+  mutate(four_regions = replace(four_regions,ISO == 'TWN', 'asia'), 
+         six_regions = replace(six_regions,ISO == 'TWN', 'east_asia_pacific'), 
+         eight_regions = replace(eight_regions,ISO == 'TWN', 'east_asia_pacific')) %>%
+#British virgin Islands
+  mutate(four_regions = replace(four_regions,ISO == 'VGB', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'VGB', 'america'), 
+         eight_regions = replace(eight_regions,ISO == 'VGB', 'america_north')) %>%
+#US Virgin Islands
+  mutate(four_regions = replace(four_regions,ISO == 'VIR', 'americas'), 
+         six_regions = replace(six_regions,ISO == 'VIR', 'america'), 
+         eight_regions = replace(eight_regions, ISO == 'VIR', 'america_north')) 
+
+```
+Next time I'll write a function.
+
+There are also a lot of countries that have NA values for their income or population. Take a peek here.
+
+```{r message=FALSE, warning=FALSE}
+lotanas <-  aei[rowSums(is.na(aei)) > 0,]
+lotanas %>% 
+  group_by(country) %>% 
+  select(income, population) %>%  
+  summarise_all(funs(sum(is.na(.))))
+
+
+```
+
+
+The countries that don't have income also don't have population, so as least I am consistent in my missing data. I have to move on so I will just leave this here for a minute. Perhaps later we should fill these variables.  
+
+
+
+## Precipitation
+
+Again, precipitation is translated output from LPJmL. Precipitation was chosen because it could be summed across countries, as other data could not (like discharge or ET). I have summed the precipitation by country and year. I am not sure whether I should scale or standardize precip, I will do all the possible combinations at the moment. 
+```{r Precip Manipulation, message=FALSE, warning=FALSE}
+#log and scale
+precip <- 
+  hum_PET_prec %>% 
+  select(ISO, year, cubM_precip) %>% 
+  mutate(precip_sc = cubM_precip/max(cubM_precip)) %>% 
+  mutate(precip_std = cubM_precip/mean(cubM_precip)) %>% 
+  mutate(log_precip = log(cubM_precip)) %>% #1 is added here to prevent -Inf
+  mutate(log_precip_sc = log_precip/max(log_precip)) %>% 
+  mutate(log_precip_std = log_precip/mean(log_precip))
+
+#merge
+aei <- merge(aei, precip, by = c("ISO", "year"), all.x = TRUE)
+rm(precip)
+```
+
+And some histograms to check out the scaled/standardized data. 
+```{r Precip Hists}
+hist(aei$cubM_precip, breaks = 100)
+hist(aei$precip_sc, breaks = 100)
+hist(aei$precip_std, breaks = 100)
+hist(aei$log_precip, breaks = 100)
+hist(aei$log_precip_sc, breaks = 100)
+hist(aei$log_precip_std, breaks = 100)
+```
+
+
+## Crop Fraction
+
+Uff. Then comes crop fraction. As mentioned above individual crop fraction per grid cell is multiplied by respective grid cell area, summed on a country level giving ha of each crop grown per country. This was then divided by total area of the country to achieve the % area occupied by a certain crop per country.
+```{r CFT manipulation, message=FALSE, warning=FALSE}
+#pull cft frac outta here
+cft$ISO <- as.factor(cft$ISO)
+cft <- cft[, -c(1)] #remove id col
+cft <- subset(cft, year >= 1900)
+
+cft <- 
+  cft %>% 
+  select(-c(4)) %>% #removing precip
+  mutate_each(funs(.*cellaream2), c(4:35)) %>% #multiply all fractions with the cell area
+  group_by(ISO, year) %>% #group in to country and year
+  summarise_each(funs(sum)) %>% #take col sums for each crop
+  mutate(across(c(3:34), .fns = ~./cellaream2)) #divide col sums by total country area 
+
+#removing categories with 0 (the biofuels and such)
+cft <- cft[, -c(18, 19, 26, 34, 35)]
+
+#and a merge
+aei <- merge(aei, cft, by = c("ISO", "year"), all.x = TRUE)
+rm(cft)
+```
+
+Idk how to show the data here. Any ideas on representation would be helpful here. 
+
+## Topographical
+
+Topographical data is represented here by the data set from @rileyTerrainRuggednessIndex1999 and is conviently available through the `library(rethinking)` from @mcelreathStatisticalRethinkingBayesian2015. It provides a ruggedness factor for each country. 
+
+```{r}
+#rugged
+data("rugged")
+rug <- rugged %>% select(c("isocode", "rugged")) 
+colnames(rug) <- c("ISO", "rugged")
+#scaling
+rug$rugged_sc <- rug$rugged / max(rug$rugged)
+#merge
+aei <- merge(aei, rug, by = "ISO", all.x = TRUE)
+rm(rug, rugged)
+
+
+```
+
+```{r}
+hist(aei$rugged_sc, breaks = 100)
+```
+
+Save that!
+```{r}
+write.csv(aei, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
+```
+
+
+***   
+
+
+
+# Time Series Evolution of Country Level Target Variable
+
+Ok, so lets peek at how things change over time. Here is a graph of percentage of country area equipped for irrigation from 1960 - 2005.
+
+```{r Irrigated Totals Graph, warning=FALSE}
+
+pirrfrac <-
+  ggplot(data = subset(aei, !is.na(irrperc)), 
+         mapping = aes(x=year, y= irrperc, group = country, color = six_regions)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrfrac)
+
+
+```
+Although this graph has a lot of countries and can get quite messy, some general trends appear. South Asian countries seem to have high percentages of irrigated area per total land area (irrigation percentage). Then seemingly followed by East Asian and European countries. Africa and the Middle East do not seem to be irrigated as much. Be aware that you can these graphs are interactive, you may zoom, pan or click on the legend to isolate the regions. Although, a regional breakdown follows.
+
+
+
+## Sub-Saharan Africa
+  
+```{r Africa Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrssAF <-
+  ggplot(data = subset(aei, six_regions == "sub_saharan_africa"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrssAF)
+```
+  
+In general, Africa has low levels of irrigated area. Swaziland, Sao Tome and Principe, Reunion and Mauritius lead here with majority of others falling below the levels of these countries.
+
+## Europe and Centrtal Asia
+  
+```{r Europe Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrEU <-
+  ggplot(data = subset(aei, six_regions == "europe_central_asia"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrEU)
+```
+  
+Europe contains some countries that reach higher percentages of irrigated area. Countries such as the Netherlands, Romania, Albania, and Azerbaijan have reached peaks in the past (roughly 10-15% irrigated area) but seem to be in a decline towards the end our study period. Other countries such as Italy and Denmark have had more stable rises with less down turn toward. Unexpectedly, Russia has a very low percentage of irrigated area, however at this point, the assumption is that either Russia's enormous size cancels out its irrigated area, or that Russia receives enough precipitation for the crops it grows that irrigation is not necessary. Further analysis should reveal this.  
+
+## Americas
+
+```{r Americas Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrAM <-
+  ggplot(data = subset(aei, six_regions == "america"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrAM)
+```
+  
+In the Americas, the % of area irrigated by countries is lower than Asia or Europe. Peaks here are Cuba and the Dominican Republic at around roughly 6-8% of their total countries being irrigated. There are some islands (Barbados and St. Lucia) that have sharp increases in irrigation fraction, but this could be because they are islands and any irrigation at all would induce the ration of irrigated land to total land spike. Counties that have experienced a steady increase, but are not the leaders in overall irrigation fraction are countries that are big and produce a lot of produce (USA, Mexico, Chile) The general trends of irrigation increase seem to be upward with perhaps a slight leveling off toward the end of the study period (for some countries) but lacking the distinct downturn that is seen in Europe.   
+  
+## East Asia and Oceania
+
+```{r East Asia and Oceania Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrEAsia <- 
+  ggplot(data = subset(aei, six_regions == "east_asia_pacific"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrEAsia)
+```
+  
+The East Asian countries are quite high in % of irrigated area, when compared to the Americas or Africa. The four countries that reach upwards of (roughly) 10% or more of their total area irrigated toward the end of the study period are Vietnam, North Korea, South Korea, and Thailand. Other countries that have high irrfracs are China, Japan and the Philippines. It is expected that for this region the irrigation fraction would be high due to the amount of rice produced. 
+
+Oceania, due to its large amount of islands, does not have a lot of irrigation, majority of countries have 0% irrigation. New Zealand (around 2%) and Australia (less than 1%) have some irrigation. Although this could have a multitude of reasons why irrigation is so low here, regardless of the fact that Australia and New Zealand are very populous countries with mouths to feed. Australia is very large and perhaps its enormity cancels out the irrigated land it does have. 
+  
+## South Asia
+```{r South Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrSAsia <-
+  ggplot(data = subset(aei, six_regions == "south_asia"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrSAsia)
+```
+Very few countries here, countries in this area are large. Very high levels of irrigation here coming from most countries. Bangladesh, Pakistan, and India are heavily irrigated compared to their land area. 
+
+
+## Middle East and North Africa
+```{r Middle East and North Africa Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirrME <-
+  ggplot(data = subset(aei, six_regions == "middle_east_north_africa"), 
+         mapping = aes(x=year, y= irrperc, color = country)) +
+  geom_line() +
+  scale_x_continuous() +
+  theme(panel.grid = element_blank()) 
+
+#run this separately, otherwise the plotly part doesn't work.
+ggplotly(pirrME)
+```
+
+Irrigation is also prevalent here (but not as much as in south Asia). These countries are dry and therefore would need irrigation to have domestic food supplies. Lebanon, Iraq and Israel lead here. Oil producing countries have little irrigation, they are dry and their GDP is high, perhaps importation is the easiest option for them?
+
+***
+
+Overall, this might be a good overview of what irrperc looks like for each region. 
+```{r message=FALSE, warning=TRUE}
+
+theme_set(theme_minimal())
+
+ggplot(subset(aei, !is.na(irrperc)),
+       aes(x=six_regions, y=irrperc, fill=six_regions)) + 
+  geom_boxplot(show.legend = FALSE)  + 
+  coord_flip() +
+  theme(legend.title = element_blank())
+```
+
+*** 
+
+# References
