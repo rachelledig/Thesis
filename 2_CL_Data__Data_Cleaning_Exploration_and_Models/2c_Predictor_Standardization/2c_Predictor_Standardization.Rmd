@@ -20,379 +20,581 @@ library(plotly)
 ```
 
 
-```{r data}
-aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
+```{r data and functions}
+aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv") #some data
+source("/Volumes/RachelExternal/Thesis/Thesis/Thesis_Functions.R") #some functions
 ```
 
-# Histograms
+# Standardization
+
 
 We've got a lot of things here to log, scale or center. 
 
 What do I mean by scaling or centering? 
 
-**Scaling**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i}{max(y)}$   
+**Normalizing**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i-min(y)}{max(y)-min(y)}$. This is useful because for some predictors it is helpul to have a notion of how big or small they are with the constraints of 0 and 1.    
 
-**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{sd(y)}$
+**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{2sd(y)}$. The classic with a twist. By using 2 standard deviations, 95% of the data is contained within 2 sd, convient. 
 
 Why must I do this? 
 
 Well, a couple of reasons. First and foremost it makes the specification of priors easier, as the distribution of the parameter already centered around the mean and most of the data points are contained within one standard deviation to each side. Another reason is that it makes the interpretation of the coeficients a bit easier, as you can clearly tell which have positive or negative effects.
 
-Lets plot what these look like with out being transformed. These graphs are also interactive, feel free to click around.
+A lot of these predictors I assume accumulate exponentially. Population, Income and total GDP are obvious ones. Some others seem to be exponential as well, given the distribution of their histograms, such as majority of the crop fractions. However, variables like irrperc/irrfrac and the crop fractions have a hard time being transformed using a log transformation because they are so zero inflated. As Log(0) = -Inf, this causes a lot of problems. I will keep them in their original scale. 
+
+- _area_km_ - 
+- _population_ - Log and Center
+- _income_ - Log and Center
+- _GDP_ - Log and Center
+- _Median Humidity_ - Center
+- _Median PET_ - Center
+- _Precip_ - Center
+- _Ruggedness_ - Scale
+- _Crop Fractoins_ - Center
+
+```{r}
+#these functions are coming from Thesis_Functions.R, loaded in the beginning
+aei_std <-
+  aei_no_std %>% 
+  select(-c(20, 21,24,28)) %>% 
+  mutate(across(c(17:19, 23), log)) %>% 
+  #centering by dividing by 2sd, so that 95% of the distribution is from [-1,1]
+  mutate(across(c(8, 17:19, 20:23, 25:51), centered)) %>% 
+  mutate(across(c(24), normalized))
+
+summary(aei_std)
+  
+#write.csv(aei_std, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
+```
+
+
+# Histograms
+
+
+
+Lets plot these before and after being transformed.
 
 ## Main Predictors
 ```{r predictor graphs, echo=FALSE}
-area <- 
-  aei_no_std %>% 
-  drop_na(area_km) %>% 
-  ggplot(aes(x=area_km, color=six_regions)) +
-  geom_histogram(fill="white", position="dodge", bins = 100) + 
-  scale_color_brewer(palette="Dark2") + ggtitle("Country Area (km^2)")
-ggplotly(area)
-
-pop <-
+pop_raw <-
   aei_no_std %>% 
   drop_na(population) %>% 
   ggplot(aes(x=population, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Total Population")
-ggplotly(pop)
+pop_std <-
+  aei_std %>% 
+  drop_na(population) %>% 
+  ggplot(aes(x=population, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Total Population - Log and Center")
+grid.arrange(pop_raw, pop_std, nrow = 2)
 
-income <-
+income_raw <-
   aei_no_std %>% 
   drop_na(income) %>% 
   ggplot(aes(x=income, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Income per Capita")
-ggplotly(income)
+income_std <-
+  aei_std %>% 
+  drop_na(income) %>% 
+  ggplot(aes(x=income, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Income per Capita - Log and Center")
+grid.arrange(income_raw, income_std, nrow = 2)
 
-GDP <-
+
+GDP_raw <-
   aei_no_std %>% 
   drop_na(GDPtot) %>% 
   ggplot(aes(x=GDPtot, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Total GDP")
-ggplotly(GDP)
-
-avghum <-
-  aei_no_std %>% 
-  drop_na(meanHumid) %>% 
-  ggplot(aes(x=meanHumid, color=six_regions)) +
+GDP_std <-
+  aei_std %>% 
+  drop_na(GDPtot) %>% 
+  ggplot(aes(x=GDPtot, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
-  scale_color_brewer(palette="Dark2") + ggtitle("Average Humidity")
-ggplotly(avghum)
+  scale_color_brewer(palette="Dark2") + ggtitle("Total GDP - Log and Center")
+grid.arrange(GDP_raw, GDP_std, nrow = 2)
 
-medhum <-
+
+medhum_raw <-
   aei_no_std %>% 
   drop_na(medHumid) %>% 
   ggplot(aes(x=medHumid, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Median Humidity")
-ggplotly(medhum)
-
-avgpet <-
-  aei_no_std %>% 
-  drop_na(meanPET) %>% 
-  ggplot(aes(x=meanPET, color=six_regions)) +
+medhum_std <-
+  aei_std %>% 
+  drop_na(medHumid) %>% 
+  ggplot(aes(x=medHumid, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
-  scale_color_brewer(palette="Dark2") + ggtitle("Average PET")
-ggplotly(avgpet)
+  scale_color_brewer(palette="Dark2") + ggtitle("Median Humidity - Center")
+grid.arrange(medhum_raw, medhum_std, nrow = 2)
 
-medpet <-
+
+medpet_raw <-
   aei_no_std %>% 
   drop_na(medPET) %>% 
   ggplot(aes(x=medPET, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Median PET")
-ggplotly(medpet)
+medpet_std <-
+  aei_std %>% 
+  drop_na(medPET) %>% 
+  ggplot(aes(x=medPET, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Median PET - Center")
+grid.arrange(medpet_raw, medpet_std, nrow = 2)
 
-precip <-
+precip_raw <-
   aei_no_std %>% 
   drop_na(cubM_precip) %>% 
   ggplot(aes(x=cubM_precip, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Precipitation m^3")
-ggplotly(precip)
+precip_std <-
+  aei_std %>% 
+  drop_na(cubM_precip) %>% 
+  ggplot(aes(x=cubM_precip, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Precipitation - Log and Center")
+grid.arrange(precip_raw, precip_std, nrow = 2)
 
-rugged <-
+rugged_raw <-
   aei_no_std %>% 
   drop_na(rugged) %>% 
   ggplot(aes(x=rugged, color=six_regions)) +
   geom_histogram(fill="white", position="dodge", bins = 100) + 
   scale_color_brewer(palette="Dark2") + ggtitle("Ruggedness") 
-ggplotly(rugged)
+rugged_std <-
+  aei_std %>% 
+  drop_na(rugged) %>% 
+  ggplot(aes(x=rugged, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Ruggedness - Scaled")
+grid.arrange(rugged_raw, rugged_std, nrow = 2)
   
 ```
 
-Some things of note here: I will be using income instead of total GDP, median Humidity and PET instead of Average, and Humidity with the Inf/NaN values replaced.
-
-A lot of things here are skewed left, which is to be expected as majority of countries are smaller rather than bigger in all aspects. There is little noticeable difference between the regions in many of the predictor variables. Income has trends as you would expect, with Europe having higher incomes and Sub Saharan Africa having lower, with some of the high outliers being from North Africa and the Middle East.There are bigger regional differences in Humidity and PET (remember these two are related $Humidity = Precip/PET$). Precip looks similar to Humidity (again, similarities were expected). Ruggedness is tough to find regional trends visually.
+The transformations of the predictors look good, and those variables that were logged and then centered look great, much more normally distributed 
 
 ## Crop Fractions
 
 What about crop fractions?
 
 ```{r temperate cereals, echo=FALSE}
-temp_cereals_rain <- 
+temp_cereals_rain_raw <-
   aei_no_std %>% 
   drop_na(Temperate_cereals) %>% 
-  plot_ly(type = 'histogram', x=~Temperate_cereals, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Temprate Cereals - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-temp_cereals_irr <-
+  ggplot(aes(x=Temperate_cereals, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Cereals - Rainfed")
+temp_cereals_irr_raw <-
   aei_no_std %>% 
   drop_na(Temperate_cereals.1) %>% 
-  plot_ly(type = 'histogram', x=~Temperate_cereals.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Temprate Cereals - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Temperate_cereals.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Cereals - Irrigated")
 
-subplot(style(temp_cereals_rain, showlegend = T), temp_cereals_irr, nrows = 2)
+
+temp_cereals_rain_std <-
+  aei_std %>% 
+  drop_na(Temperate_cereals) %>% 
+  ggplot(aes(x=Temperate_cereals, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Cereals - Rainfed - Centered")
+temp_cereals_irr_std <-
+  aei_std %>% 
+  drop_na(Temperate_cereals.1) %>% 
+  ggplot(aes(x=Temperate_cereals.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Cereals - Irrigated - Centered")
+
+
+grid.arrange(temp_cereals_rain_raw,temp_cereals_irr_raw, temp_cereals_rain_std, temp_cereals_irr_std, nrow = 4)
 ```
+
 ```{r rice, echo=FALSE}
-rice_rain <- 
+rice_rain_raw <-
   aei_no_std %>% 
   drop_na(Rice) %>% 
-  plot_ly(type = 'histogram', x=~Rice, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Rice - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-rice_irr <-
+  ggplot(aes(x=Rice, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rice - Rainfed")
+rice_irr_raw <-
   aei_no_std %>% 
   drop_na(Rice.1) %>% 
-  plot_ly(type = 'histogram', x=~Rice.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Rice - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Rice.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rice - Irrigated")
 
-subplot(style(rice_rain, showlegend = T), rice_irr, nrows = 2)
+
+rice_rain_std <-
+  aei_std %>% 
+  drop_na(Rice) %>% 
+  ggplot(aes(x=Rice, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rice - Rainfed - Centered")
+rice_irr_std <-
+  aei_std %>% 
+  drop_na(Rice.1) %>% 
+  ggplot(aes(x=Rice.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rice - Irrigated - Centered")
+
+
+grid.arrange(rice_rain_raw, rice_irr_raw, rice_rain_std, rice_irr_std, nrow = 4)
 ```
 
 ```{r maize, echo=FALSE}
-maize_rain <- 
+maize_rain_raw <-
   aei_no_std %>% 
   drop_na(Maize) %>% 
-  plot_ly(type = 'histogram', x=~Maize, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Maize - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-maize_irr <-
+  ggplot(aes(x=Maize, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Maize - Rainfed")
+maize_irr_raw <-
   aei_no_std %>% 
   drop_na(Maize.1) %>% 
-  plot_ly(type = 'histogram', x=~Maize.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Maize - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Maize.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Maize - Irrigated")
 
-subplot(style(maize_rain, showlegend = T), maize_irr, nrows = 2)
+maize_rain_std <-
+  aei_std %>% 
+  drop_na(Maize) %>% 
+  ggplot(aes(x=Maize, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Maize - Rainfed - Centered")
+maize_irr_std <-
+  aei_std %>% 
+  drop_na(Maize.1) %>% 
+  ggplot(aes(x=Maize.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Maize - Irrigated - Centered")
+
+grid.arrange(maize_rain_raw,maize_irr_raw, maize_rain_std, maize_irr_std, nrow = 4)
 ```
 
 ```{r tropical cereals, echo=FALSE}
-trop_cereals_rain <- 
+tc_rain_raw <-
   aei_no_std %>% 
   drop_na(Tropical_cereals) %>% 
-  plot_ly(type = 'histogram', x=~Tropical_cereals, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Tropical Cereals - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-trop_cereals_irr <-
+  ggplot(aes(x=Tropical_cereals, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Cereals - Rainfed")
+tc_irr_raw <-
   aei_no_std %>% 
   drop_na(Tropical_cereals.1) %>% 
-  plot_ly(type = 'histogram', x=~Tropical_cereals.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Tropical Cereals - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Tropical_cereals.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Cereals - Irrigated")
 
-subplot(style(trop_cereals_rain, showlegend = T), trop_cereals_irr, nrows = 2)
+tc_rain_std <-
+  aei_std %>% 
+  drop_na(Tropical_cereals) %>% 
+  ggplot(aes(x=Tropical_cereals, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Cereals - Rainfed - Centered")
+tc_irr_std <-
+  aei_std %>% 
+  drop_na(Tropical_cereals.1) %>% 
+  ggplot(aes(x=Tropical_cereals.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Cereals - Irrigated - Centered")
+
+grid.arrange(tc_rain_raw,tc_irr_raw, tc_rain_std, tc_irr_std, nrow = 4)
 ```
 
 ```{r pulses, echo=FALSE}
-pulses_rain <- 
+pulses_rain_raw <-
   aei_no_std %>% 
   drop_na(Pulses) %>% 
-  plot_ly(type = 'histogram', x=~Pulses, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Pulses - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-pulses_irr <-
+  ggplot(aes(x=Pulses, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Pulses - Rainfed")
+pulses_irr_raw <-
   aei_no_std %>% 
   drop_na(Pulses.1) %>% 
-  plot_ly(type = 'histogram', x=~Pulses.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Pulses - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Pulses.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Pulses - Irrigated")
 
-subplot(style(pulses_rain, showlegend = T), pulses_irr, nrows = 2)
+pulses_rain_std <-
+  aei_std %>% 
+  drop_na(Pulses) %>% 
+  ggplot(aes(x=Pulses, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Pulses - Rainfed - Centered")
+pulses_irr_std <-
+  aei_std %>% 
+  drop_na(Pulses.1) %>% 
+  ggplot(aes(x=Pulses.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Pulses - Irrigated - Centered")
+
+grid.arrange(pulses_rain_raw,pulses_irr_raw, pulses_rain_std, pulses_irr_std, nrow = 4)
 ```
 
 ```{r temperate roots, echo=FALSE}
-temp_roots_rain <- 
+tr_rain_raw <-
   aei_no_std %>% 
-  drop_na(Temperate_roots) %>% 
-  plot_ly(type = 'histogram', x=~Temperate_roots, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Temperate_roots - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-temp_roots_irr <-
+  drop_na(Temprate_roots) %>% 
+  ggplot(aes(x=Temprate_roots, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Roots - Rainfed")
+tr_irr_raw <-
   aei_no_std %>% 
-  drop_na(Temperate_roots.1) %>% 
-  plot_ly(type = 'histogram', x=~Temperate_roots.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Temperate_roots - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  drop_na(Temprate_roots.1) %>% 
+  ggplot(aes(x=Temprate_roots.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Roots - Irrigated")
 
-subplot(style(temp_roots_rain, showlegend = T), temp_roots_irr, nrows = 2)
+tr_rain_std <-
+  aei_std %>% 
+  drop_na(Temprate_roots) %>% 
+  ggplot(aes(x=Temprate_roots, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Roots - Rainfed - Centered")
+tr_irr_std <-
+  aei_std %>% 
+  drop_na(Temprate_roots.1) %>% 
+  ggplot(aes(x=Temprate_roots.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Temprate Roots - Irrigated - Centered")
+
+grid.arrange(tr_rain_raw,tr_irr_raw, tr_rain_std, tr_irr_std, nrow = 4)
 ```
 
 ```{r tropical roots, echo=FALSE}
-trop_roots_rain <- 
+trr_rain_raw <-
   aei_no_std %>% 
   drop_na(Tropical_roots) %>% 
-  plot_ly(type = 'histogram', x=~Tropical_roots, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Tropical_roots - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Tropical_roots, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Roots - Rainfed")
 
-trop_roots_rain
+trr_rain_std <-
+  aei_std %>% 
+  drop_na(Tropical_roots) %>% 
+  ggplot(aes(x=Tropical_roots, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Tropical Roots - Rainfed - Centered")
+
+grid.arrange(trr_rain_raw, trr_rain_std, nrow = 4)
 ```
 
 ```{r sunflower, echo=FALSE}
-sunflower_rain <- 
+sf_rain_raw <-
   aei_no_std %>% 
   drop_na(Sunflower) %>% 
-  plot_ly(type = 'histogram', x=~Sunflower, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Sunflower - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-sunflower_irr <-
+  ggplot(aes(x=Sunflower, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sunflower - Rainfed")
+sf_irr_raw <-
   aei_no_std %>% 
   drop_na(Sunflower.1) %>% 
-  plot_ly(type = 'histogram', x=~Sunflower.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Sunflower - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Sunflower.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sunflower - Irrigated")
 
-subplot(style(sunflower_rain, showlegend = T), sunflower_irr, nrows = 2)
+sf_rain_std <-
+  aei_std %>% 
+  drop_na(Sunflower) %>% 
+  ggplot(aes(x=Sunflower, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sunflower - Rainfed - Centered")
+sf_irr_std <-
+  aei_std %>% 
+  drop_na(Sunflower.1) %>% 
+  ggplot(aes(x=Sunflower.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sunflower - Irrigated - Centered")
+
+grid.arrange(sf_rain_raw,sf_irr_raw, sf_rain_std, sf_irr_std, nrow = 4)
 ```
 
 ```{r soy, echo=FALSE}
-soy_rain <- 
+soy_rain_raw <-
   aei_no_std %>% 
   drop_na(Soybean) %>% 
-  plot_ly(type = 'histogram', x=~Soybean, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Soybean - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-soy_irr <-
+  ggplot(aes(x=Soybean, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Soy - Rainfed")
+soy_irr_raw <-
   aei_no_std %>% 
   drop_na(Soybean.1) %>% 
-  plot_ly(type = 'histogram', x=~Soybean.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Soybean - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Soybean.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Soy - Irrigated")
 
-subplot(style(soy_rain, showlegend = T), soy_irr, nrows = 2)
+soy_rain_std <-
+  aei_std %>% 
+  drop_na(Soybean) %>% 
+  ggplot(aes(x=Soybean, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Soy - Rainfed - Centered")
+soy_irr_std <-
+  aei_std %>% 
+  drop_na(Soybean.1) %>% 
+  ggplot(aes(x=Soybean.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Soy - Irrigated - Centered")
+
+grid.arrange(soy_rain_raw,soy_irr_raw, soy_rain_std, soy_irr_std, nrow = 4)
 ```
 
 ```{r groundnuts, echo=FALSE}
-groundnuts_rain <- 
+gns_rain_raw <-
   aei_no_std %>% 
   drop_na(Groundnuts) %>% 
-  plot_ly(type = 'histogram', x=~Groundnuts, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Groundnuts - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-groundnuts_irr <-
+  ggplot(aes(x=Groundnuts, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Groundnuts - Rainfed")
+gns_irr_raw <-
   aei_no_std %>% 
   drop_na(Groundnuts.1) %>% 
-  plot_ly(type = 'histogram', x=~Groundnuts.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Groundnuts - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Groundnuts.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Groundnuts - Irrigated")
 
-subplot(style(groundnuts_rain, showlegend = T), groundnuts_irr, nrows = 2)
+gns_rain_std <-
+  aei_std %>% 
+  drop_na(Groundnuts) %>% 
+  ggplot(aes(x=Groundnuts, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Groundnuts - Rainfed - Centered")
+gns_irr_std <-
+  aei_std %>% 
+  drop_na(Groundnuts.1) %>% 
+  ggplot(aes(x=Groundnuts.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Groundnuts - Irrigated - Centered")
+
+grid.arrange(gns_rain_raw,gns_irr_raw, gns_rain_std, gns_irr_std, nrow = 4)
 ```
 
 ```{r rapeseed, echo=FALSE}
-rapeseed_rain <- 
+rps_rain_raw <-
   aei_no_std %>% 
   drop_na(Rapeseed) %>% 
-  plot_ly(type = 'histogram', x=~Rapeseed, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Rapeseed - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-rapeseed_irr <-
+  ggplot(aes(x=Rapeseed, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rapeseed - Rainfed")
+rps_irr_raw <-
   aei_no_std %>% 
   drop_na(Rapeseed.1) %>% 
-  plot_ly(type = 'histogram', x=~Rapeseed.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Rapeseed - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Rapeseed.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rapeseed - Irrigated")
 
-subplot(style(rapeseed_rain, showlegend = T), rapeseed_irr, nrows = 2)
+rps_rain_std <-
+  aei_std %>% 
+  drop_na(Rapeseed) %>% 
+  ggplot(aes(x=Rapeseed, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rapeseed - Rainfed - Centered")
+rps_irr_std <-
+  aei_std %>% 
+  drop_na(Rapeseed.1) %>% 
+  ggplot(aes(x=Rapeseed.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Rapeseed - Irrigated - Centered")
+
+grid.arrange(rps_rain_raw,rps_irr_raw, rps_rain_std, rps_irr_std, nrow = 4)
 ```
+
 ```{r sugar, echo=FALSE}
-sugar_rain <- 
+sugar_rain_raw <-
   aei_no_std %>% 
   drop_na(Sugarcane) %>% 
-  plot_ly(type = 'histogram', x=~Sugarcane, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Sugarcane - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-sugar_irr <-
+  ggplot(aes(x=Sugarcane, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sugarcane - Rainfed")
+sugar_irr_raw <-
   aei_no_std %>% 
   drop_na(Sugarcane.1) %>% 
-  plot_ly(type = 'histogram', x=~Sugarcane.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Sugarcane - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Sugarcane.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sugarcane - Irrigated")
 
-subplot(style(sugar_rain, showlegend = T), sugar_irr, nrows = 2)
+sugar_rain_std <-
+  aei_std %>% 
+  drop_na(Sugarcane) %>% 
+  ggplot(aes(x=Sugarcane, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sugarcane - Rainfed - Centered")
+sugar_irr_std <-
+  aei_std %>% 
+  drop_na(Sugarcane.1) %>% 
+  ggplot(aes(x=Sugarcane.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Sugarcane - Irrigated - Centered")
+
+grid.arrange(sugar_rain_raw,sugar_irr_raw, sugar_rain_std, sugar_irr_std, nrow = 4)
 ```
 
 
 
 ```{r others, echo=FALSE}
-others_rain <- 
+others_rain_raw <-
   aei_no_std %>% 
   drop_na(Others) %>% 
-  plot_ly(type = 'histogram', x=~Others, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Others - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-others_irr <-
+  ggplot(aes(x=Others, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Rainfed")
+others_irr_raw <-
   aei_no_std %>% 
   drop_na(Others.1) %>% 
-  plot_ly(type = 'histogram', x=~Others.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Others - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Others.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Irrigated")
 
-subplot(style(others_rain, showlegend = T), others_irr, nrows = 2)
+others_rain_std <-
+  aei_std %>% 
+  drop_na(Others) %>% 
+  ggplot(aes(x=Others, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Rainfed - Centered")
+others_irr_std <-
+  aei_std %>% 
+  drop_na(Others.1) %>% 
+  ggplot(aes(x=Others.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Irrigated - Centered")
+
+grid.arrange(others_rain_raw,others_irr_raw, others_rain_std, others_irr_std, nrow = 4)
 ```
+
 ```{r managed grass, echo=FALSE}
-managedgrass_rain <- 
+mg_rain_raw <-
   aei_no_std %>% 
   drop_na(Managed_Grasslands) %>% 
-  plot_ly(type = 'histogram', x=~Managed_Grasslands, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 1.05, text = "Managed_Grasslands - Rainfed", showarrow = F, 
-xref='paper', yref='paper')) 
-
-managedgrass_irr <-
+  ggplot(aes(x=Managed_Grasslands, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Rainfed")
+mg_irr_raw <-
   aei_no_std %>% 
   drop_na(Managed_Grasslands.1) %>% 
-  plot_ly(type = 'histogram', x=~Managed_Grasslands.1, color = ~six_regions, legendgroup=~six_regions) %>% 
-  layout(annotations = list(x = 0.2 , y = 0.95, text = "Managed_Grasslands - Irrigated", showarrow = F, 
-xref='paper', yref='paper')) 
+  ggplot(aes(x=Managed_Grasslands.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Irrigated")
 
-subplot(style(managedgrass_rain, showlegend = T), managedgrass_irr, nrows = 2)
-```
-# Standardization
+mg_rain_std <-
+  aei_std %>% 
+  drop_na(Managed_Grasslands) %>% 
+  ggplot(aes(x=Managed_Grasslands, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Rainfed - Centered")
+mg_irr_std <-
+  aei_std %>% 
+  drop_na(Managed_Grasslands.1) %>% 
+  ggplot(aes(x=Managed_Grasslands.1, color=six_regions)) +
+  geom_histogram(fill="white", position="dodge", bins = 100) + 
+  scale_color_brewer(palette="Dark2") + ggtitle("Others - Irrigated - Centered")
 
-- _area_km_ - log and scale
-- _population_ - log and 
-- _income_
-- _GDP_
-- _Mean Humidity_ - Log and Center
-- _Median Humidity_ - Log and Center
-- _Mean PET_ - Log and Center
-- _Median PET_ - Log and Center
-- _Precip_ - Log and Center
-- _Ruggedness_ - Scale
-
-```{r}
-aei_std <-
-  aei_no_std %>% 
-  drop_na(c(8,17:26, 29:55)) %>% 
-  mutate(rugged = rugged/(max(rugged))) %>% 
-  mutate(across(c(8,17:26, 29:55), scale, scale = TRUE))
-  
+grid.arrange(mg_rain_raw,mg_irr_raw, mg_rain_std, mg_irr_std, nrow = 4)
 ```

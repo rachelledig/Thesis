@@ -36,7 +36,8 @@ Lets do some stuff from Solomon Kurz's other bookdown, [_Applied Longitudinal Da
 
 ```{r}
 #read the file, if you dont have it from the previous markdown. 
-aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
+aei <- aei[,-1]
 ```
 
 ## With Priors
@@ -93,7 +94,7 @@ AFG_norm_yearcount <-
                 prior(exponential(1), class = sigma)),
       iter = 4000, chains = 4, cores = 4,
       seed = 17,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Fits/AFG_norm_d_yearcount")
+      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Fits/AFG_norm_d_yearcount13")
 
 ```
 Yep looks fine here! Check these posterior and the priors, just to see that brms is putting them in the right place...
@@ -205,7 +206,7 @@ AFG_norm_nopri_d_yearcount <-
       control = list(adapt_delta = 0.99),
       iter = 4000, chains = 4, cores = 4,
       seed = 17,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/AFG_norm_nopri_d_yearcount")
+      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/AFG_norm_nopri_d_yearcount13")
 
 models_noprior <- 
   by_ISO %>%
@@ -284,6 +285,8 @@ ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline_noprior.png", abline_noprio
 
 ![Individual Country Fits with no priors specified](/Volumes/RachelExternal/Thesis/Thesis/Plots/abline_noprior.png)
 
+
+
 Whoa, ok so these countries are fit way way better. This makes sense though, because if the model is being refit for each country then the priors can fluctuate much more. in the first run, I limited the priors to a pretty narrow slope that wasn't helpful for countries that have expansion trajectories that increase quicker than the range I specified in the prior. If brms is behaving like I expect it to behave, its fitting a uniform prior for the slope and a student t distribution for the intercept, FOR EACH COUNTRY. I could go back and weaken the priors chosen for fit1 but what I'm doing here is not that important.   
 
 ## Prior vs. No Prior Fits 
@@ -333,134 +336,3 @@ table_probs %>%
 Yeah for all of these countries the fit has been improved, by visual inspection and the bayes $R^2$ by disregarding the priors and allowing the model to fit with default priors for each country. 
 
 ***
-# Feature Selection: `ggpairs()`
-
-We can check out the data using `ggpairs()`. What I am really looking for is the relationship with irrperc. 
-
-## The Basics
-```{r message=FALSE, warning=FALSE}
-#includes log_income_std, log_pop_std, precip_sc, rugged_sc
-aei %>% 
-  select(irrperc, log_income_std, log_pop_std, precip_sc, rugged_sc) %>% 
-  ggpairs()
-```
-So from the first plot it seems that standardized log population and a scaled ruggedness seem to be somewhat correlated with irrperc. But these `pairs()` plots can be hard to interpret sometimes, just trying to get a first look.    
-
-
-I've plotted all of the transformed precipitation features because I am a little unclear on which I should use, and wanted to see if any of them seemed connected to trends with irrprec. 
-```{r message=FALSE, warning=FALSE}
-#only precipitation features are plotted here. 
-aei %>% 
-  select(irrperc, precip_sc, precip_std, log_precip_sc, log_precip_std) %>% 
-  ggpairs()
-```
-Hmmmm, none of them seem to clearly be correlated with irrperc. Perhaps percipitation is not the metric to use.. may have to use something else.
-
-More!
-```{r message=FALSE, warning=FALSE}
-aei %>% 
-  select(irrperc, Longitude, Latitude, yearcount) %>% 
-  ggpairs()
-```
-Ok, higher latitudes have more irrigation than southern ones. Also, apparently eastern latitudes (pos latitudes) are linked to higher irrigation percents. But both of these are just characteristics of land mass not something continuous. and when you look at lat vs. lon you get a simplified earth! Year count also (as expected) has something to do with irrperc.
-
-## Irrigated Crops
-
-Lets check out the crops. Ill just take the irrigated crops first and compare them with irrperc to see if any of them seem correlated.
-```{r message=FALSE, warning=FALSE}
-
-#irrigated crops
-#designated with .1
-aei %>% 
-  select(irrperc, c(46:50)) %>% 
-  ggpairs( pch = 18)
-
-#irrigated crops
-aei %>% 
-  select(irrperc, c(51:54)) %>% 
-  ggpairs( pch = 18)
-
-#irrigated crops
-aei %>% 
-  select(irrperc, c(55:58)) %>% 
-  ggpairs( pch = 18)
-
-```
-I am just looking at the numbers in the first row, and the graphs in the first col. Nothing appears to jump out here, `ggpairs()` uses significance which can be misleading here.  But countries with higher or lower amounts of irrigation don't seem to have obvious correlations with crop types, either positive or negative. 
-```{r message=FALSE, warning=FALSE}
-#irrigated crops
-aei %>% 
-  select(precip_sc, c(46:50)) %>% 
-  ggpairs( pch = 18)
-
-#irrigated crops
-aei %>% 
-  select(precip_sc, c(51:54)) %>% 
-  ggpairs( pch = 18)
-
-#irrigated crops
-aei %>% 
-  select(precip_sc, c(55:58)) %>% 
-  ggpairs( pch = 18)
-
-```
-Not sure if it makes too much sense to compare irrigated crops to rainfall as I am unclear of how these crops are modeled inside LPJmL.  The most notable correlation coeff listed here is for temperate cereals.  The graphs here again don't reveal much. 
-
-## Rainfed Crops
-
-```{r message=FALSE, warning=FALSE}
-#rainfed crops
-aei %>% 
-  select(irrperc, c(32:36)) %>% 
-  ggpairs( pch = 18)
-
-#rainfed crops
-aei %>% 
-  select(irrperc, c(37:41)) %>% 
-  ggpairs( pch = 18)
-
-#rainfed crops
-aei %>% 
-  select(irrperc, c(42:46)) %>% 
-  ggpairs( pch = 18)
-```
-
-
-
-```{r message=FALSE, warning=FALSE}
-#rainfed crops
-aei %>% 
-  select(precip_sc, c(32:36)) %>% 
-  ggpairs( pch = 18)
-
-#rainfed crops
-aei %>% 
-  select(precip_sc, c(37:41)) %>% 
-  ggpairs( pch = 18)
-
-#rainfed crops
-aei %>% 
-  select(precip_sc, c(42:46)) %>% 
-  ggpairs( pch = 18)
-```
-
-
-# Early Gaussian Models
-
-Ok lets specify something and see if we can get it to run. Well use irrperc as we haven't moved into zero inflated land. This is gaussian with no priors. Gaussian is not gonna work with this. But... let's see. 
-```{r}
-fit3.1 <-
-  brm(data = aei,
-      formula = irrperc ~ yearcount + Latitude + Longitude + log_pop_std + rugged_sc,
-      control = list(adapt_delta = 0.99),
-      iter = 4000, chains = 4, cores = 4,
-      seed = 17,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/fit3.1")
-
-plot(fit3.1,  ask = FALSE, nrow = 3)
-summary(fit3.1)
-prior_summary(fit3.1)
-pp_check(fit3.1)
-```
-                                                                                                                                                                                                                                                                                                                                                                                  
-I know that this is not gonna work out. Lets switch to the Zero-inflated models. All I am doing here is getting frustrated.

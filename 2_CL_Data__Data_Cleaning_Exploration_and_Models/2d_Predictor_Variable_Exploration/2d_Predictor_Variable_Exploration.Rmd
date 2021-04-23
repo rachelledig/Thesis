@@ -27,17 +27,19 @@ library(ggdag)
 aei_no_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
 ```
 
-
+#Corr Plots
 
 ## Lat, Lon, Pop, Income, GDP, Rugged
 
-Here, population, income, and total GDP have been logged as the idea is that "wealth begets wealth" therefore the wealth accumulates exponentially. The same augment holds true for population. Also, the distributions of these predictors were so right skewed that little response was registered. I think I might do the same for my response variable (irrgation perc) as the idea still holds here, the more irrigation there is, the more irrigation there will be, meaning that it too exponentially. 
+Here, population, income, and total GDP have been logged as the idea is that "wealth begets wealth" therefore the wealth accumulates exponentially. The same augment holds true for population. Also, the distributions of these predictors were so right skewed that little response was registered. I think I might do the same for my response variable (irrgation perc) as the idea still holds here, the more irrigation there is, the more irrigation there will be, meaning that it too exponentially. (Rachel from the future: you cannot do this as is, because of the fact that irrperc is zero inflated, taking the log causes alot alot of problems. I can remove the 0s to just see how things would be related for the beta distribution, but the variable as is cannot be logged without a lot of hassle.)
+
+So, with the zeros included:
  
 ```{r echo=FALSE}
 aei_no_std %>% 
   select(irrperc, Latitude, Longitude, population, income, GDPtot,rugged) %>% 
   drop_na() %>% 
-  mutate_at(c("irrperc", "population", "income", "GDPtot"), log) %>% 
+  mutate_at(c("population", "income", "GDPtot"), log) %>% 
   ggcorrm(., mapping = aes(), corr_method = c("spearman")) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -47,7 +49,7 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, Latitude, Longitude, population, income, GDPtot, rugged) %>% 
   drop_na() %>% 
-  mutate_at(c("irrperc","population", "income", "GDPtot"), log) %>% 
+  mutate_at(c("population", "income", "GDPtot"), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions), corr_method = c("spearman")) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -76,8 +78,8 @@ In relationship to the precipitation, when the log is taken of the precipitation
 aei_no_std %>% 
   select(irrperc, medHumid, medPET, cubM_precip) %>% 
   drop_na() %>% 
-  mutate_at(c("irrperc", "cubM_precip"), log) %>% 
-  ggcorrm(., mapping = aes(), corr_method = c("kendall")) +
+  mutate_at(c("cubM_precip"), log) %>% 
+  ggcorrm(., mapping = aes(), corr_method = c("spearman")) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
   dia_names(y_pos = 0.15, size = 2) +
@@ -86,8 +88,8 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, cubM_precip) %>% 
   drop_na() %>% 
-  mutate_at(c("irrperc", "cubM_precip"), log) %>% 
-  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions), corr_method = c("kendall")) +
+  mutate_at(c("cubM_precip"), log) %>% 
+  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions), corr_method = c("spearman")) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
   dia_names(y_pos = 0.15, size = 2) +
@@ -95,15 +97,16 @@ aei_no_std %>%
 ```
 
 
+
+
 ## Crops
 
-All of the crop fractions have been logged, as they were heavily skewed to the right. 
+Again, we cannot log things here as there are too many zeros for all of these crop fractions. Best to leave them be? Better to remove the zeros?
 
 ```{r echo=FALSE}
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(29, 43)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -113,7 +116,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(30,44)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -123,7 +125,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(31,45)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -133,7 +134,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(32, 46)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -145,7 +145,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(33, 47)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -155,7 +154,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(34,48)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -164,9 +162,7 @@ aei_no_std %>%
 
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(35)) %>% 
-  drop_na() %>% 
-  mutate_at(vars(5), log) %>% 
-  ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
+  drop_na() %>% ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
   dia_names(y_pos = 0.15, size = 2) +
@@ -175,7 +171,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(36, 49)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -185,7 +180,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(37, 50)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -195,7 +189,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(38,51)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -205,7 +198,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(39,52)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -215,7 +207,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(40, 53)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -225,7 +216,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(41, 54)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
@@ -235,7 +225,6 @@ aei_no_std %>%
 aei_no_std %>% 
   select(irrperc, four_regions, medHumid, medPET, c(42, 55)) %>% 
   drop_na() %>% 
-  mutate_at(vars(5:6), log) %>% 
   ggcorrm(., mapping = aes(col = four_regions, fill = four_regions)) +
   lotri(geom_point(alpha = 0.5)) +
   utri_corrtext(nrow = 4, squeeze = 0.6) +
