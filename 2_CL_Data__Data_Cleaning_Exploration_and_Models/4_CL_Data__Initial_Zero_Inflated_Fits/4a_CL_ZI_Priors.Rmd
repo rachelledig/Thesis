@@ -1,0 +1,341 @@
+---
+title: "Zero Inflated Prior Specifications"
+author: "Rachel Ledig"
+date: "4/26/2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+```{r include = FALSE}
+library(dplyr)
+library(brms)
+library(tidyr)
+library(tidyverse)
+library(job)
+library(ggplot2)
+library(extraDistr)
+```
+
+```{r load data, include = FALSE}
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
+aei <- aei[,-1]
+```
+
+# The `beta`
+
+The `beta` distribution is a beast that turns every which way and is difficult to conceptualize how it will behave (at least for me). I will choose two mus that make sense for my data, as it is super skewed to the left. 
+
+```{r echo=FALSE}
+tibble(mu = c(.1, .25, .5)) %>% 
+  expand(mu, phi = c(0.3, 2, 5, 70)) %>% 
+  expand(nesting(mu, phi), x = seq(from = 0, to = 1, length.out = 100)) %>% 
+  mutate(density = dprop(x, phi, mu),
+         mu      = str_c("mu = ", mu),
+         phi   = str_c("phi = ", phi)) %>% 
+  ggplot() +
+  geom_line(aes(x = x, y = density, col = phi)) +
+  scale_x_continuous(breaks = c(0, .5, 1)) +
+  scale_y_continuous(NULL, labels = NULL) +
+  theme_bw() +
+  facet_wrap( ~ mu)
+```
+
+Flexible it is. Been sitting here for an hour trying to figure out what phi does to the distribution, it is not intuitive. Side note: neg phi values are not tolerated.
+
+
+
+# Setting Priors
+
+Alright, so the mess begins. 
+
+For zero inflated models we need to pull some tricks to be able to select priors for these models because the issue here involves the link functions. Different parameters have different links: intercept and zi (the part that predicts the proportion of 0s) use a logit link, phi uses a log link. 
+
+So, with help from MariePratzer, we have figured out how brms requires the priors for zero inflated models. The specified priors must be applicable when transformed with their respective link functions. 
+
+Let's build a quick model and use `get_prior()` to find out what will be the default settings for this formula and family. 
+
+```{r brms formula and priors}
+cl_zi_prior_spec_bf <-bf(
+  irrfrac ~ 1 + rugged + population + income + medHumid,
+  phi ~ 1,
+  zi ~ 1 + income)
+
+
+get_prior(
+  formula = cl_zi_prior_spec_bf,
+  data = aei, 
+  family = zero_inflated_beta()
+)
+```
+
+
+We have three specified intercepts and the applied priors:   
+- one for the `beta` part of my model - student_t(3, 0, 2.5)  
+- one for the dispersion coeff of my `beta`, phi - student_t(3, 0, 2.5)  
+- one for the intercept of my zero inflated probability, zi - logistic(0, 1)   
+
+brms also uses flat priors for all coeffs that are not intercepts (class = 'b')
+
+## `beta`'s Intercept
+
+### Default Intercept for `beta`
+
+Some things to remember, for this equation we are using a `logit` link. I will use the functions `qlogis()` and `plogis()` which represent the logit transformation and the inverse logit, respectively. 
+
+I am not entirely clear here on which way I should apply this transition. Expanding on the logic from before, the specified priors must be applicable when transformed, I need to specify a scaled T distribution and transform it with the `qlogis()` function. however, I also could understand that the priors we defined, we assume, have already undergone the logit link as we will use them on a transformed scale, thus we need to apply the inverse logit (`plogis()`) link to visualize the prior on the outcome scale. 
+
+```{r}
+#try with `qlogis()`
+mu <- tibble(.rows = 10000)
+mu$studentt <- rt(10000, 3, 0)*2.5 #scaled t
+mu$transformed <- qlogis(mu$studentt)
+
+ggplot(data = mu) +
+  geom_density(aes(x=studentt), color = 'red') + #red is default prior
+  geom_density(aes(x=transformed), color = 'blue') + #blue is transformed prior
+  xlim(-5,5)
+```
+
+Remember, red is the original student t distribution, and the blue is the transformed prior. 
+
+Here I get a warning about removing non-finite values. let me check the summary of the little df we created. 
+
+```{r}
+summary(mu)
+```
+
+Alright, a lot of NAs in this little transformed col. Going back to the logit equation, if you remember the logit was the log odds. 
+$$
+logit(\pi) = log \frac{\pi}{1-\pi}
+$$
+
+and if you look at the default distribution (in red above) we clearly have negative values for $\pi$. Inputting negative values in to the logit function (or remember `qlogis()`) will produce a lot of NAs or NaNs, as the numerator will be negative and logging a negative is not the way to go. This makes me think that these priors are defined in the second way, assuming that they have already been transformed, and we need to untransform them (using the inverse link or `plogis()`) to visualize them on an outcome scale. Lets try the same thing and see if we produce as many NaNs. 
+
+```{r}
+#try with `plogis()`
+mu$outcome <- plogis(mu$studentt)
+
+summary(mu)
+
+ggplot(data = mu) +
+  geom_density(aes(x=studentt), color = 'red') + #again, default
+  geom_density(aes(x=outcome), color = 'blue') + #inv.logit transformed
+  xlim(-5,5)
+```
+
+Ok, less yelling here, and it seems to be coming from ggplot2 not from the summary, as there are no NAs in the outcome col. The summary shows that the outcome scale is from 0 to 1, so I think that this is the correct logic here. Looking at the outcome (inverse logit transformed) distribution looks great for something that is zero one inflated. Irrigation fraction is only zero inflated. Lets see if we can find a different, more suitable prior for the data. 
+
+### Selecting Priors for Intercept of `beta`
+
+Now to play around with priors (and see if I am really proficient with ggplot2), Lets use a normal distribution and mess around with mean and sd.
+```{r}
+mu <- 
+  mu %>% 
+  mutate(norm00 = rnorm(10000, 0, 0)) %>% 
+  mutate(norm20 = rnorm(10000, 2, 0)) %>% 
+  mutate(normm20 = rnorm(10000, -2, 0)) %>% 
+  mutate(tnorm00 = plogis(norm00)) %>% 
+  mutate(tnorm20 = plogis(norm20)) %>% 
+  mutate(tnormm20 = plogis(normm20)) 
+  
+
+N00 <- ggplot(data = mu) +
+  geom_density(aes(x=norm00), color = 'red') + 
+  geom_density(aes(x=tnorm00), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(0, 0)")
+
+N20<-
+  ggplot(data = mu) +
+  geom_density(aes(x=norm20), color = 'red') + 
+  geom_density(aes(x=tnorm20), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(2, 0)")
+
+
+Nm20 <-
+  ggplot(data = mu) +
+  geom_density(aes(x=normm20), color = 'red') + 
+  geom_density(aes(x=tnormm20), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(-2, 0)")
+
+gridExtra::grid.arrange(N00, N20, Nm20, nrow = 1)
+```
+
+So shifting the mean around of the $N(⋅)$ does shift the mean of the prior on the outcome scale. A $N(0,0)$ transformed has a mean at 0.5. A $N(2,0)$ seems to shift the mean of the outcome scaled prior to the right, closer to 1. A $N(-2,0)$ shifts the mean in the other direction. 
+
+ 
+Lets check the effect of changing the standard dev with a normal distribution.
+```{r}
+
+mu <- 
+  mu %>% 
+  mutate(norm0_5 = rnorm(10000, 0, 0.5)) %>% 
+  mutate(norm01 = rnorm(10000, 0, 1)) %>% 
+  mutate(norm03 = rnorm(10000, 0, 3)) %>% 
+  mutate(tnorm0_5 = plogis(norm0_5)) %>% 
+  mutate(tnorm01 = plogis(norm01)) %>% 
+  mutate(tnorm03 = plogis(norm03)) 
+
+summary(mu)
+  
+
+N0_5 <- ggplot(data = mu) +
+  geom_density(aes(x=norm0_5), color = 'red') + 
+  geom_density(aes(x=tnorm0_5), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(0, 0.5)")
+
+N01 <-
+  ggplot(data = mu) +
+  geom_density(aes(x=norm01), color = 'red') + 
+  geom_density(aes(x=tnorm01), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(0, 1)")
+
+
+N03 <-
+  ggplot(data = mu) +
+  geom_density(aes(x=norm03), color = 'red') + 
+  geom_density(aes(x=tnorm03), color = 'blue') + #inv.logit transformed
+  xlim(-2,2) + 
+  ggtitle("Normal(0, 3)")
+
+gridExtra::grid.arrange(N0_5, N01, N03, nrow = 1)
+```
+
+Alright so the standard deviation of the $N(⋅)$ dictates how deep this dip is, when the data is in the outcome scale, which, again, is great for a zero one inflated model. Can I find a combination that would result in a prior on the outcome scale that fits the distribution of the data?
+
+```{r echo=FALSE}
+hist(aei$irrfrac, breaks = 100)
+```
+
+```{r}
+mu <- mu %>% 
+  mutate(goodprior = rnorm(10000, -3, 2), goodoutcome = plogis(goodprior)) 
+mu %>% 
+  ggplot() +
+  geom_density(aes(x=goodprior), color = 'red') +
+  geom_density(aes(x=goodoutcome), color = 'blue') + 
+  xlim(-2,2) + 
+  ggtitle("N(-3, 2)")
+
+
+```
+
+This seems like a completely arbitrary prior but it is a pretty educated guess of the distribution of the data. Perhaps we keep it here. 
+
+## `beta`'s Phi
+
+What is this phi? 
+
+Well, a `beta` distribution can be parameterized one of two ways, either using shapes a and b to describe the distribution or mu (the mean) and phi (the dispersion). brms uses the second parameterization and phi functions similarly to the standard deviation of a normal distribution, it tells you the width of the distribution. This seems intuitive in theory but as you could tell from the graphs at the beginning, the phi parameter changes not only the spread, but the shape. 
+
+### Default Intercept for `beta`'s phi
+
+Recall that the transformation for phi uses a `log` link, not a `logit` link. The opposite of a `log` link is `exp`. So lets repeat the same process as above to investigate the prior for phi. Remember that the default prior for phi was again student_t(3, 0, 2.5).
+
+```{r}
+tibble(phi = rt(10000, 3, 0)*2.5) %>%  #scaled t 
+  mutate(outcome = exp(phi)) %>% 
+  ggplot() +
+  geom_density(aes(x=phi), color = 'red') + 
+  geom_density(aes(x=outcome), color = 'blue') + 
+  xlim(-5,5)
+
+```
+
+Alright, this seems fine but I was just thinking that I have no notion for what the phi of the data would be...but if I go back up and set the mu closer to what I think the mu for the data will be, this looks like an acceptable prior. As the data is so left skewed, to account for the distribution to do something similar to what the data is, the mu needs to be close to 0. Phi seems to have an interesting relationship with mu, the closer mu is to 0 the larger phi can be without loosing its descriptive shape of the data. If mu is farther away from 0, phi has to remain closer to 0 to maintain the shape of the data. Check out the graphs in the beginning. This seems logical because the smaller phi is the "tighter" the distribution is to mu. I think that values of $\phi <= 5$ would probably work, which is pretty much what this Student T dictates. I can mess around for a sec but I may end up keeping this one, it seems pretty regularizing. 
+
+### Selecting Priors for Intercept of `beta`'s phi
+
+Alright, since we want these to be positive, we could try a log normal distribution. but upon further investigation, as this prior will be transformed, the only thing that matters is that after it has been (inversely) transformed back to the output scale it should be positive, not that the specified prior distribution has to be non negative. 
+```{r}
+tibble(phi = rlnorm(10000, 0, 1)) %>%  #log normal
+  mutate(outcome = exp(phi)) %>% 
+  ggplot() +
+  geom_density(aes(x=phi), color = 'red') + #original prior
+  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
+  xlim(-1,10) + ggtitle("LogNormal(0, 1)")
+
+```
+
+Yeah, The issue with using a $LogN()$ distribution is that when transformed I cannot get the outcome distribution of phi (in blue, remember) to move any closer to 0, without specifying a negative mean for $LogN()$, which seems illegal. I want values of phi to be able to occupy near 0 if need be, so lets try something else.
+
+Sometimes I have seen a gamma used as a default, and actually if you plug in the formula for this model directly in to `get_prior()` it specifies completely different priors. I don't understand why yet, but I think I will leave that one to the mysteries of the universe. I'll prove it here though, just for myself. 
+
+```{r}
+get_prior(
+  formula = irrfrac ~ 1 + rugged + population + income + medHumid,
+  data = aei, 
+  family = zero_inflated_beta()
+)
+```
+
+So, a learning moment here, brms will give you a default prior for phi as the gamma distribution if you don't predict phi (and you get a different prior for zi too, if you don't predict it within the `bf()`). But we need to be careful here. The [STAN forum](https://discourse.mc-stan.org/t/understanding-parameters-of-beta-family-in-brms/21640/9) talks about how when you don't predict a parameter, the default assigned prior is in the non transformed (outcome) scale. So none of this `exp` or `logit` business. 
+
+What if I try a normal distribution, just for fun.
+
+```{r}
+tibble(phi = rnorm(10000, -1, 2)) %>% 
+  mutate(outcome = exp(phi)) %>% 
+  ggplot() +
+  geom_density(aes(x=phi), color = 'red') + #original prior
+  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
+  xlim(-5,10) + ggtitle("Normal(-1, 2)")
+
+
+```
+Yeah this one would probably work, from a theoretical standpoint. However, at the moment the phi parameter is not the clearest to me, I will most likely continue to use the default provided by brms.
+
+# The `bernoulli`
+
+Now we move on to the zero inflated part, which in a `zero_inflated_beta()` is encapsulated by a bernoulli distribution. Which could look like this:
+$$
+P(n)=
+\begin{aligned}
+\begin{cases}
+p &\text{for n=1}\\
+1-p &\text{for n=0}
+\end{cases}
+\end{aligned}
+$$
+Where n = is a success, or in my case, the presence of some irrigation. Conversely, when n=0, there is no irrigation. Marvelous!
+
+In the `zero_inflated_beta()`
+
+## Default prior for `bernoulli`'s zi
+
+Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again. 
+
+```{r}
+tibble(zi = rlogis(10000, 0, 1)) %>% 
+  mutate(outcome = plogis(zi)) %>% 
+  ggplot() +
+  geom_density(aes(x=zi), color = 'red') + #original prior
+  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
+  xlim(-5,5) + ggtitle("Log(0,1)")
+```
+
+Ok, so a specified logistic(0, 1) prior when transformed is basically, a uniform distribution, from 0 to 1. This assumes that zi (or p, the proportion of data points that are irrigated) could occupy any value from 0 to 1, which is a completely fair assumption, if you knew nothing, which is kind of the case.
+
+### Selecting Priors for `bernoulli`'s zi
+
+But let's think a bit, zi represents the porportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of our data, this is the case because if there were more than 80% of the data points with some value of irrigation, then our data would not really be zero inflated. 
+
+So, extending this, I expect zi to equal 0.2 or greater.
+
+But at the same time I am aware that the data cannot be more than, perhaps, 80% zeros. So zi will probably be 0.8 or lower. 
+
+
+
+
+

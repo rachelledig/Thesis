@@ -35,7 +35,7 @@ library(knitr)
 Lets do some stuff from Solomon Kurz's other bookdown, [_Applied Longitudinal Data Analysis in brms and the tidyverse_](https://bookdown.org/content/4253/exploring-longitudinal-data-on-change.html), to see if we can visualize our target variable a bit better. I'm also using some techniques from Hadley Wickham's nice youtube video, [_Managing many models with R_](https://www.youtube.com/watch?v=rz3_FDVt9eg&t=802s). 
 
 ```{r}
-#read the file, if you dont have it from the previous markdown. 
+#read the file, if you don't have it from the previous markdown. 
 aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
 aei <- aei[,-1]
 ```
@@ -53,13 +53,13 @@ by_ISO <-
 
 ### Prior Prediction
 
-Doing a little prior plotting, I've messed around a bit and settled on some semi-sensible priors assuming a gaussian distribution for both the parameter and slope. I am assuming that our intercept is normally distributed with around a mean of 2 and a standard variation of 2, our beta coef is centered around 0.01 with a sd of 0.1. This produces irrperc values within an acceptable range (roughly 0-15%). There are some negative values here. Perhaps a prior that is bounded by 0 would be a better fit for this, but experiments with log normal distributions have proved difficult. Also, none of the countries have negative trajectories of irrigation expansion, but some do have a decrease towards the end of the study period.
+Doing a little prior plotting, I've messed around a bit and settled on some semi-sensible priors assuming a Gaussian distribution for both the parameter and slope. I am assuming that our intercept is normally distributed with around a mean of 2 and a standard variation of 2, our beta coeff is centered around 0.01 with a sd of 0.1. This produces irrperc values within an acceptable range (roughly 0-15%). There are some negative values here. Perhaps a prior that is bounded by 0 would be a better fit for this, but experiments with log normal distributions have proved difficult. Also, none of the countries have negative trajectories of irrigation expansion, but some do have a decrease towards the end of the study period.
 
 ```{r Prior Predict}
 set.seed(17)
 N <- 50
 a <- rnorm(N , 2, 2)
-b <- rnorm( N , 0., 0.1 )
+b <- rnorm( N , 0.05, 0.05 )
 
 plot( NULL , xlim=range(aei$yearcount) , ylim=c(-50,50) , xlab="year" , ylab="Irrigation Percentage" )
 abline( h=0 , lty=2 )
@@ -78,7 +78,7 @@ $$
 irrperc_c &\sim N(\mu_c, \sigma_c)  \\
 \mu_c &= \alpha_c + \beta_c*yearcount \\
 \alpha_c &\sim N(2,2) \\
-\beta_c &\sim N(0.01, 0.1) \\
+\beta_c &\sim N(0.05, 0.05) \\
 \sigma_c &\sim exp(1)   
 \end{aligned}
 $$
@@ -90,11 +90,11 @@ AFG_norm_yearcount <-
       formula = irrperc ~ yearcount,
       control = list(adapt_delta = 0.99),
       prior = c(prior(normal(2,2), class = Intercept),
-                prior(normal(0.01, 0.1), class = b),
+                prior(normal(0.05, 0.05), class = b),
                 prior(exponential(1), class = sigma)),
       iter = 4000, chains = 4, cores = 4,
       seed = 17,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Fits/AFG_norm_d_yearcount13")
+      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Fits/AFG_norm_d_yearcount_95")
 
 ```
 Yep looks fine here! Check these posterior and the priors, just to see that brms is putting them in the right place...
@@ -110,7 +110,7 @@ models <-
   by_ISO %>%
   mutate(model = map(data, ~update(AFG_norm_yearcount, newdata = ., seed = 2)))
 ```
-This runs, and for some of the models it yells that things didn't converge.. and I'm just going to leave it, as this is not really the most importatnt part.
+This runs, and for some of the models it yells that things didn't converge.. and I'm just going to leave it, as this is not really the most important part.
 
 ### Calculation of Mean Structure
 
@@ -188,17 +188,21 @@ abline <-
   theme(panel.grid = element_blank()) +
   facet_wrap(~ISO, ncol = 2)
 
-ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline.png", abline, height = 200,limitsize = FALSE, dpi = 300 )
+ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline_95.png", abline, height = 200,limitsize = FALSE, dpi = 300 )
 ```
-![Individual Country Fits](/Volumes/RachelExternal/Thesis/Thesis/Plots/abline.png)
+![Individual Country Fits](/Volumes/RachelExternal/Thesis/Thesis/abline_95.png)
+
+
 Some of these countries don't have fantastic fits. ALB, BGD, BGR, BRB, CUB, DNK, IND, NLD, PAK, ROU, have some issues.   
 
 ***
 
 ## Using No Priors
 
-What if I do this again with no priors... and see if it fits better for the countries with more extreme increases in irrigated area over time. Ive run the same setup as above with the calculation of the mean, variance and bayesian $R^2$. Below I've graphed the fits for the problem countries (ALB, BGD, BGR, BRB, CUB, DNK, IND, NLD, PAK, ROU).
-### The No Prior Model
+What if I do this again with no priors... and see if it fits better for the countries with more extreme increases in irrigated area over time. I've run the same setup as above with the calculation of the mean, variance and bayesian $R^2$. Below I've graphed the fits for the problem countries (ALB, BGD, BGR, BRB, CUB, DNK, IND, NLD, PAK, ROU).
+
+### The No Prior Model 
+
 ```{r No Prior Fit, message=FALSE, warning=FALSE, echo = T, results = 'hide'}
 AFG_norm_nopri_d_yearcount <-
   brm(data = by_ISO$data[[2]],
@@ -206,7 +210,7 @@ AFG_norm_nopri_d_yearcount <-
       control = list(adapt_delta = 0.99),
       iter = 4000, chains = 4, cores = 4,
       seed = 17,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/AFG_norm_nopri_d_yearcount13")
+      file = "/Volumes/RachelExternal/Thesis/Thesis/fits/AFG_norm_nopri_d_yearcount_95")
 
 models_noprior <- 
   by_ISO %>%
@@ -215,8 +219,8 @@ models_noprior <-
 ```
 
 
-### Calculation of Statistics
-```{r message=FALSE, warning=FALSE}
+
+```{r include=FALSE}
 mean_structure_noprior <-
   models_noprior %>% 
   mutate(coefs = map(model, ~ posterior_summary(.)[1:2, 1:2] %>% 
@@ -249,8 +253,10 @@ r2_noprior <-
   select(ISO, r2)
 ```
 
+
 ### Plotting
-```{r message=FALSE, warning=FALSE}
+
+```{r echo=FALSE}
 abline_noprior <- 
   by_ISO %>% 
   subset(., c(ISO == "ALB"| ISO == "BGD"|ISO ==  "BGR"| ISO == "BRB"|
@@ -278,18 +284,20 @@ abline_noprior <-
   facet_wrap(~ISO, ncol = 2)
 
 
-ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline_noprior.png", abline_noprior, dpi = 300 )
+ggsave("/Volumes/RachelExternal/Thesis/Thesis/abline_noprior_95.png", abline_noprior, dpi = 300 )
 ```
 
 
 
-![Individual Country Fits with no priors specified](/Volumes/RachelExternal/Thesis/Thesis/Plots/abline_noprior.png)
+![Individual Country Fits with no priors specified](/Volumes/RachelExternal/Thesis/Thesis/abline_noprior_95.png)
 
 
 
 Whoa, ok so these countries are fit way way better. This makes sense though, because if the model is being refit for each country then the priors can fluctuate much more. in the first run, I limited the priors to a pretty narrow slope that wasn't helpful for countries that have expansion trajectories that increase quicker than the range I specified in the prior. If brms is behaving like I expect it to behave, its fitting a uniform prior for the slope and a student t distribution for the intercept, FOR EACH COUNTRY. I could go back and weaken the priors chosen for fit1 but what I'm doing here is not that important.   
 
 ## Prior vs. No Prior Fits 
+
+### Comparison of Tables
 
 Lets check the table, first the problem countries fit without a prior. 
 ```{r Problem Countries No Prior Table, echo=FALSE}
@@ -336,3 +344,75 @@ table_probs %>%
 Yeah for all of these countries the fit has been improved, by visual inspection and the bayes $R^2$ by disregarding the priors and allowing the model to fit with default priors for each country. 
 
 ***
+
+### Comparison Visually
+
+We can use these individual fits to look at variances between regions. 
+
+```{r}
+irrperc_fitted <-
+  mean_structure %>% 
+  mutate(`1910` = init_stat_est + rate_change_est * 0,
+         `2005` = init_stat_est + rate_change_est * 95) %>% 
+  select(ISO, `1910`, `2005`) %>% 
+  pivot_longer(-ISO, 
+               names_to = "year", 
+               values_to = "irrperc") %>% 
+  mutate(year = as.integer(year))
+
+
+
+irrperc_fitted_no_prior <-
+  mean_structure_noprior %>% 
+  mutate(`1910` = init_stat_est + rate_change_est * 0,
+         `2005` = init_stat_est + rate_change_est * 95) %>% 
+  select(ISO, `1910`, `2005`) %>% 
+  pivot_longer(-ISO, 
+               names_to = "year", 
+               values_to = "irrperc") %>% 
+  mutate(year = as.integer(year))
+
+
+```
+we can quickly put some regions here and plot things by regions. 
+```{r echo=FALSE}
+irrperc_fitted <- 
+  aei %>%
+  select(ISO, four_regions, six_regions, eight_regions) %>% 
+  merge(., irrperc_fitted, by = "ISO") %>% 
+  unique()
+
+irrperc_fitted_no_prior <- 
+  aei %>%
+  select(ISO, four_regions, six_regions, eight_regions) %>% 
+  merge(., irrperc_fitted_no_prior, by = "ISO") %>% 
+  unique()
+
+
+
+```
+
+```{r echo=FALSE}
+ggplot(data = irrperc_fitted, aes(x = year, y = irrperc, color = six_regions)) +
+  geom_line(aes(group = ISO),
+            size = 1/4) +
+  geom_line(data = irrperc_fitted_no_prior, aes(x = year, y = irrperc, color = six_regions, group = ISO),
+            size = 1/4) +
+  scale_color_viridis_d(end = .75) +
+  coord_cartesian(ylim = c(0, 20)) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  ggtitle("Linear Fits - alpha ~ N(2,2), beta ~ N(0.05, 0.05") +
+  facet_wrap(~six_regions)
+
+ggplot(data = irrperc_fitted_no_prior, aes(x = year, y = irrperc, color = six_regions)) +
+  geom_line(aes(group = ISO),
+            size = 1/4) +
+  scale_color_viridis_d(end = .75) +
+  coord_cartesian(ylim = c(0, 20)) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  ggtitle("Linear Fits - Default Priors") +
+  facet_wrap(~six_regions)
+```
+Not too much changes here between these two graphs. You can see that some of these slopes are terribly wrong, as their intercepts are negative which is nonsensical. In addition the regularization of the fits can be seem from chart to chart, particularly with those countries that had a bigger rate of change (slope) value. 
