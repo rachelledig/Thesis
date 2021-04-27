@@ -13,7 +13,7 @@ bibliography: /Volumes/RachelExternal/Thesis/Thesis/bib.bib
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
 ```
 
-```{r include = FALSE}
+```{r packages, include = FALSE}
 library(dplyr)
 library(brms)
 library(tidyr)
@@ -21,6 +21,7 @@ library(tidyverse)
 library(job)
 library(ggplot2)
 library(extraDistr)
+library(knitr)
 ```
 
 ```{r load data, include = FALSE}
@@ -28,9 +29,35 @@ aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
 aei <- aei[,-1]
 ```
 
-# The `beta`
+# The Centered Data
 
-The `beta` distribution is a beast that turns every which way and is difficult to conceptualize how it will behave (at least for me). I will choose two mus that make sense for my data, as it is super skewed to the left. 
+Some notes on the data: A standardized data set is being used. Here are the main predictors with their standardization method.
+
+**Normalizing**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i-min(y)}{max(y)-min(y)}$. This is useful because for some predictors it is helpful to have a notion of how big or small they are with the constraints of 0 and 1.    
+
+**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{2sd(y)}$. The classic with a twist. By using 2 standard deviations, 95% of the data is contained within one unit, or 2 sd to each side, convenient. 
+
+- _population_ - Log and Center
+- _income_ - Log and Center
+- _GDP_ - Log and Center
+- _Median Humidity_ - Center
+- _Median PET_ - Center
+- _Precip_ - Center
+- _Ruggedness_ - Normalize
+
+And a quick summary of the data:
+```{r}
+aei %>% 
+  select(-c(1:6, 11:16, 21, 25:51)) %>% 
+  summary() %>% 
+  kable()
+```
+Irrfrac has not been centered, as it is between 0 and 1. I will leave it as such. Everything else has been centered on 0 except for ruggedness, which is normalized. 
+
+# Setting Priors
+
+
+The `beta` distribution is a beast that turns every which way and is difficult to conceptualize how it will behave (at least for me). I will choose two mus that make sense for the data, as it is super skewed to the left. 
 
 ```{r echo=FALSE}
 tibble(mu = c(.1, .25, .5)) %>% 
@@ -50,14 +77,14 @@ tibble(mu = c(.1, .25, .5)) %>%
 Flexible it is. Been sitting here for an hour trying to figure out what phi does to the distribution, it is not intuitive. Side note: neg phi values are not tolerated.
 
 
+## The `beta`
 
-# Setting Priors
 
 Alright, so the mess begins. 
 
 For zero inflated models we need to pull some tricks to be able to select priors for these models because the issue here involves the link functions. Different parameters have different links: intercept and zi (the part that predicts the proportion of 0s) use a logit link, phi uses a log link. 
 
-So, with help from MariePratzer, we have figured out how brms requires the priors for zero inflated models. The specified priors must be applicable when transformed with their respective link functions. 
+So, with help from Marie, we have figured out how brms requires the priors for zero inflated models. The specified priors must be applicable when transformed with their respective link functions. 
 
 Let's build a quick model and use `get_prior()` to find out what will be the default settings for this formula and family. 
 
@@ -77,15 +104,15 @@ get_prior(
 
 
 We have three specified intercepts and the applied priors:   
-- one for the `beta` part of my model - student_t(3, 0, 2.5)  
-- one for the dispersion coeff of my `beta`, phi - student_t(3, 0, 2.5)  
-- one for the intercept of my zero inflated probability, zi - logistic(0, 1)   
+- one for the `beta` part of the model - $T(3, 0, 2.5)$  
+- one for the dispersion coeff of the `beta`, phi - $T(3, 0, 2.5)$  
+- one for the intercept of the zero inflated probability, zi - $logistic(0, 1)$   
 
 brms also uses flat priors for all coeffs that are not intercepts (class = 'b')
 
-## `beta`'s Intercept
+### `beta`'s Intercept
 
-### Default Intercept for `beta`
+#### Default Intercept for `beta`
 
 Some things to remember, for this equation we are using a `logit` link. I will use the functions `qlogis()` and `plogis()` which represent the logit transformation and the inverse logit, respectively. 
 
@@ -93,14 +120,15 @@ I am not entirely clear here on which way I should apply this transition. Expand
 
 ```{r}
 #try with `qlogis()`
-mu <- tibble(.rows = 10000)
-mu$studentt <- rt(10000, 3, 0)*2.5 #scaled t
-mu$transformed <- qlogis(mu$studentt)
-
-ggplot(data = mu) +
-  geom_density(aes(x=studentt), color = 'red') + #red is default prior
-  geom_density(aes(x=transformed), color = 'blue') + #blue is transformed prior
-  xlim(-5,5)
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`qlogis Outcome Scale` = qlogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `qlogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>%
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
 ```
 
 Remember, red is the original student t distribution, and the blue is the transformed prior. 
@@ -108,7 +136,10 @@ Remember, red is the original student t distribution, and the blue is the transf
 Here I get a warning about removing non-finite values. let me check the summary of the little df we created. 
 
 ```{r}
-summary(mu)
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`Outcome Scale` = qlogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  summary()
+  
 ```
 
 Alright, a lot of NAs in this little transformed col. Going back to the logit equation, if you remember the logit was the log odds. 
@@ -120,52 +151,65 @@ and if you look at the default distribution (in red above) we clearly have negat
 
 ```{r}
 #try with `plogis()`
-mu$outcome <- plogis(mu$studentt)
-
-summary(mu)
-
-ggplot(data = mu) +
-  geom_density(aes(x=studentt), color = 'red') + #again, default
-  geom_density(aes(x=outcome), color = 'blue') + #inv.logit transformed
-  xlim(-5,5)
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
+```
+```{r}
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  #log normal
+  mutate(`Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  summary()
 ```
 
-Ok, less yelling here, and it seems to be coming from ggplot2 not from the summary, as there are no NAs in the outcome col. The summary shows that the outcome scale is from 0 to 1, so I think that this is the correct logic here. Looking at the outcome (inverse logit transformed) distribution looks great for something that is zero one inflated. Irrigation fraction is only zero inflated. Lets see if we can find a different, more suitable prior for the data. 
+Ok, less yelling here, and it seems to be coming from ggplot2 not from the summary, as there are no NAs in the outcome col. The summary shows that the outcome scale is from 0 to 1, so I think that this is the correct logic here. Obviously will be using `plogis` from now on. Looking at the outcome (inverse logit transformed) distribution looks great for something that is zero one inflated. Irrigation fraction is only zero inflated. Lets see if we can find a different, more suitable prior for the data. 
 
-### Selecting Priors for Intercept of `beta`
+#### Selecting Priors for Intercept of `beta`
 
 Now to play around with priors (and see if I am really proficient with ggplot2), Lets use a normal distribution and mess around with mean and sd.
 ```{r}
-mu <- 
-  mu %>% 
-  mutate(norm00 = rnorm(10000, 0, 0)) %>% 
-  mutate(norm20 = rnorm(10000, 2, 0)) %>% 
-  mutate(normm20 = rnorm(10000, -2, 0)) %>% 
-  mutate(tnorm00 = plogis(norm00)) %>% 
-  mutate(tnorm20 = plogis(norm20)) %>% 
-  mutate(tnormm20 = plogis(normm20)) 
-  
 
-N00 <- ggplot(data = mu) +
-  geom_density(aes(x=norm00), color = 'red') + 
-  geom_density(aes(x=tnorm00), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
-  ggtitle("Normal(0, 0)")
+
+N00 <- tibble(`Normal(0,0)` = rnorm(10000, 0, 0)) %>%  
+  mutate(`Outcome` = plogis(`Normal(0,0)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,0)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-3,3) + xlab(NULL) +
+  ggtitle("Normal(0,0)")
 
 N20<-
-  ggplot(data = mu) +
-  geom_density(aes(x=norm20), color = 'red') + 
-  geom_density(aes(x=tnorm20), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
-  ggtitle("Normal(2, 0)")
+  tibble(`Normal(2,0)` = rnorm(10000, 2, 0)) %>%  
+  mutate(`Outcome` = plogis(`Normal(2,0)`)) %>% 
+  pivot_longer(cols = c(`Normal(2,0)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-3,3) + xlab(NULL) +
+  ggtitle("Normal(2,0)")
 
 
 Nm20 <-
-  ggplot(data = mu) +
-  geom_density(aes(x=normm20), color = 'red') + 
-  geom_density(aes(x=tnormm20), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
-  ggtitle("Normal(-2, 0)")
+  tibble(`Normal(-2,0)` = rnorm(10000, -2, 0)) %>%  
+  mutate(`Outcome` = plogis(`Normal(-2,0)`)) %>% 
+  pivot_longer(cols = c(`Normal(-2,0)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-3,3) + xlab(NULL) +
+  ggtitle("Normal(-2,0)")
 
 gridExtra::grid.arrange(N00, N20, Nm20, nrow = 1)
 ```
@@ -176,37 +220,40 @@ So shifting the mean around of the $N(⋅)$ does shift the mean of the prior on 
 Lets check the effect of changing the standard dev with a normal distribution.
 ```{r}
 
-mu <- 
-  mu %>% 
-  mutate(norm0_5 = rnorm(10000, 0, 0.5)) %>% 
-  mutate(norm01 = rnorm(10000, 0, 1)) %>% 
-  mutate(norm03 = rnorm(10000, 0, 3)) %>% 
-  mutate(tnorm0_5 = plogis(norm0_5)) %>% 
-  mutate(tnorm01 = plogis(norm01)) %>% 
-  mutate(tnorm03 = plogis(norm03)) 
+N0_5 <- tibble(`Normal(0,0.5)` = rnorm(10000, 0, 0.5)) %>%  
+  mutate(`Outcome` = plogis(`Normal(0,0.5)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,0.5)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL)  +
+  ggtitle("Normal(0,0.5)")
 
-summary(mu)
-  
-
-N0_5 <- ggplot(data = mu) +
-  geom_density(aes(x=norm0_5), color = 'red') + 
-  geom_density(aes(x=tnorm0_5), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
-  ggtitle("Normal(0, 0.5)")
-
-N01 <-
-  ggplot(data = mu) +
-  geom_density(aes(x=norm01), color = 'red') + 
-  geom_density(aes(x=tnorm01), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
-  ggtitle("Normal(0, 1)")
+N01<-
+  tibble(`Normal(0,1)` = rnorm(10000, 0,1)) %>%  
+  mutate(`Outcome` = plogis(`Normal(0,1)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,1)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Normal(0,1)")
 
 
 N03 <-
-  ggplot(data = mu) +
-  geom_density(aes(x=norm03), color = 'red') + 
-  geom_density(aes(x=tnorm03), color = 'blue') + #inv.logit transformed
-  xlim(-2,2) + 
+  tibble(`Normal(0,3)` = rnorm(10000, 0,3)) %>%  
+  mutate(`Outcome` = plogis(`Normal(0,3)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,3)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
   ggtitle("Normal(0, 3)")
 
 gridExtra::grid.arrange(N0_5, N01, N03, nrow = 1)
@@ -219,52 +266,62 @@ hist(aei$irrfrac, breaks = 100)
 ```
 
 ```{r}
-mu <- mu %>% 
-  mutate(goodprior = rnorm(10000, -3, 2), goodoutcome = plogis(goodprior)) 
-mu %>% 
+
+tibble(`Normal(-3,2)` = rnorm(10000, -3, 2)) %>%  
+  mutate(`Outcome` = plogis(`Normal(-3,2)`)) %>% 
+  pivot_longer(cols = c(`Normal(-3,2)`, `Outcome`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
   ggplot() +
-  geom_density(aes(x=goodprior), color = 'red') +
-  geom_density(aes(x=goodoutcome), color = 'blue') + 
-  xlim(-2,2) + 
-  ggtitle("N(-3, 2)")
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-2,2) + xlab(NULL) +
+  ggtitle("Selected Global Intercept Prior - Normal(-3, 2)")
 
 
 ```
 
 This seems like a completely arbitrary prior but it is a pretty educated guess of the distribution of the data. Perhaps we keep it here. 
 
-## `beta`'s Phi
+### `beta`'s Phi
 
 What is this phi? 
 
 Well, a `beta` distribution can be parameterized one of two ways, either using shapes a and b to describe the distribution or mu (the mean) and phi (the dispersion). brms uses the second parameterization and phi functions similarly to the standard deviation of a normal distribution, it tells you the width of the distribution. This seems intuitive in theory but as you could tell from the graphs at the beginning, the phi parameter changes not only the spread, but the shape. 
 
-### Default Intercept for `beta`'s phi
+#### Default Intercept for `beta`'s phi
 
 Recall that the transformation for phi uses a `log` link, not a `logit` link. The opposite of a `log` link is `exp`. So lets repeat the same process as above to investigate the prior for phi. Remember that the default prior for phi was again student_t(3, 0, 2.5).
 
 ```{r}
-tibble(phi = rt(10000, 3, 0)*2.5) %>%  #scaled t 
-  mutate(outcome = exp(phi)) %>% 
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`Outcome Scale` = exp(`Default Student T(3, 0, 2.5)`)) %>% 
+  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
   ggplot() +
-  geom_density(aes(x=phi), color = 'red') + 
-  geom_density(aes(x=outcome), color = 'blue') + 
-  xlim(-5,5)
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Default phi Intercept Prior - Student T(3, 0, 2.5)")
 
 ```
 
 Alright, this seems fine but I was just thinking that I have no notion for what the phi of the data would be...but if I go back up and set the mu closer to what I think the mu for the data will be, this looks like an acceptable prior. As the data is so left skewed, to account for the distribution to do something similar to what the data is, the mu needs to be close to 0. Phi seems to have an interesting relationship with mu, the closer mu is to 0 the larger phi can be without loosing its descriptive shape of the data. If mu is farther away from 0, phi has to remain closer to 0 to maintain the shape of the data. Check out the graphs in the beginning. This seems logical because the smaller phi is the "tighter" the distribution is to mu. I think that values of $\phi <= 5$ would probably work, which is pretty much what this Student T dictates. I can mess around for a sec but I may end up keeping this one, it seems pretty regularizing. 
 
-### Selecting Priors for Intercept of `beta`'s phi
+#### Selecting Priors for Intercept of `beta`'s phi
 
 Alright, since we want these to be positive, we could try a log normal distribution. but upon further investigation, as this prior will be transformed, the only thing that matters is that after it has been (inversely) transformed back to the output scale it should be positive, not that the specified prior distribution has to be non negative. 
 ```{r}
-tibble(phi = rlnorm(10000, 0, 1)) %>%  #log normal
-  mutate(outcome = exp(phi)) %>% 
+tibble(`LogNormal(0, 1)` = rlnorm(10000, 0, 1)) %>% 
+  mutate(outcome_scale = exp(`LogNormal(0, 1)`)) %>% 
+  pivot_longer(cols = c(`LogNormal(0, 1)`, outcome_scale), 
+               names_to = "scale", 
+               values_to = "distribution") %>% 
   ggplot() +
-  geom_density(aes(x=phi), color = 'red') + #original prior
-  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
-  xlim(-1,10) + ggtitle("LogNormal(0, 1)")
+  geom_density(aes(x = distribution, color = scale)) + 
+  xlim(-1,10) + xlab(NULL) +
+  ggtitle("phi Intercept Prior - LogNormal(0, 1)")
 
 ```
 
@@ -285,18 +342,24 @@ So, a learning moment here, brms will give you a default prior for phi as the ga
 What if I try a normal distribution, just for fun.
 
 ```{r}
-tibble(phi = rnorm(10000, -1, 2)) %>% 
-  mutate(outcome = exp(phi)) %>% 
+tibble(`Normal(-1,2)` = rnorm(10000, -1, 2)) %>%  
+  mutate(`Outcome Scale` = exp(`Normal(-1,2)`)) %>% 
+  pivot_longer(cols = c(`Normal(-1,2)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
   ggplot() +
-  geom_density(aes(x=phi), color = 'red') + #original prior
-  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
-  xlim(-5,10) + ggtitle("Normal(-1, 2)")
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Selected phi Prior - Normal(-1,2)")
 
 
 ```
-Yeah this one would probably work, from a theoretical standpoint. However, at the moment the phi parameter is not the clearest to me, I will most likely continue to use the default provided by brms.
 
-# The `bernoulli`
+
+Yeah this one would probably work, from a theoretical standpoint. However, at the moment the phi parameter is not the clearest to me, I will most likely continue to use the default provided by brms. Also this one looks very similar to the default student t.
+
+### The `bernoulli`
 
 Now we move on to the zero inflated part, which in a `zero_inflated_beta()` is encapsulated by a bernoulli distribution. Which could look like this:
 $$
@@ -308,34 +371,177 @@ p &\text{for n=1}\\
 \end{cases}
 \end{aligned}
 $$
-Where n = is a success, or in my case, the presence of some irrigation. Conversely, when n=0, there is no irrigation. Marvelous!
+Where n = is a success, or in this case, the presence of some irrigation. Conversely, when n=0, there is no irrigation. Marvelous!
 
 In the `zero_inflated_beta()`
 
-## Default prior for `bernoulli`'s zi
+#### Default prior for `bernoulli`'s zi
 
-Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again. 
+Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again (so `plogis()`. 
 
 ```{r}
-tibble(zi = rlogis(10000, 0, 1)) %>% 
-  mutate(outcome = plogis(zi)) %>% 
+tibble(`Logistic(0, 1)` = rlogis(10000, 0, 1)) %>%  
+  mutate(`Outcome Scale` = plogis(`Logistic(0, 1)`)) %>% 
+  pivot_longer(cols = c(`Logistic(0, 1)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
   ggplot() +
-  geom_density(aes(x=zi), color = 'red') + #original prior
-  geom_density(aes(x=outcome), color = 'blue') + #on the outcome scale
-  xlim(-5,5) + ggtitle("Log(0,1)")
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Default zi Prior - Logistic(0, 1)")
 ```
 
 Ok, so a specified logistic(0, 1) prior when transformed is basically, a uniform distribution, from 0 to 1. This assumes that zi (or p, the proportion of data points that are irrigated) could occupy any value from 0 to 1, which is a completely fair assumption, if you knew nothing, which is kind of the case.
 
-### Selecting Priors for `bernoulli`'s zi
+#### Selecting Priors for `bernoulli`'s zi
 
-But let's think a bit, zi represents the porportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of our data, this is the case because if there were more than 80% of the data points with some value of irrigation, then our data would not really be zero inflated. 
+But let's think a bit, zi represents the proportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of the data, this is the case because if there were more than 80% of the data points with some value of irrigation, then the data would not really be zero inflated. 
 
 So, extending this, I expect zi to equal 0.2 or greater.
 
-But at the same time I am aware that the data cannot be more than, perhaps, 80% zeros. So zi will probably be 0.8 or lower. 
+But at the same time I am aware that the data cannot be more than, perhaps, 80% zeros. So zi will probably be 0.8 or lower. So we could say that the range of zi should be (lets be even more generous) $0.15 < zi < 0.85$. Lets see if we can find a prior that acts as such. 
+
+```{r}
+tibble(`Logistic(0,0.75)` = rlogis(10000, 0, 0.75)) %>%  
+  mutate(`Outcome Scale` = plogis(`Logistic(0,0.75)`)) %>% 
+  pivot_longer(cols = c(`Logistic(0,0.75)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Selected zi Prior - Logistic(0, 0.75)")
+```
+
+
+We can keep the logistic but just make it a bit less uniform on the parameter space. This follows the assumptions laid out above, where zi is less likely to occupy extreme values (0 or 1). This seems suitable. 
+
+Side note: A $N(0,1)$ would also work.
+
+```{r}
+tibble(`Normal(0,1)` = rnorm(10000, 0, 1)) %>%  
+  mutate(`Outcome Scale` = plogis(`Normal(0,1)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,1)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("zi Prior - Normal(0,1)")
+```
+
+
+
+### The Slope (`b_`) Paramaters 
+
+Recall that the slope parameters (`b_`) are given a default flat prior by brms. Which is about as improper and non descriptive as you can get! 
+
+Ok, thinking about the transformation of the data that has been done.... in the outcome scale the majority of predictors are centered around 0 with majority of the data encapsulated between -1 and 1 (because we divided by two sd instead of one). These `b_` (fixed effect) parameters receive a `logit` transformation (I think so..) so lets work with that. We need a prior that when transformed (via the `invlogit`) has a normal distribution centered on one with a spread from -1 to 1. 
+
+
+But thinking more about this, the `logit` will always transform things so that they are between 0 and 1. Should the centering of the data be changed? Is it not helpful to center things on 0? Would centering things on 0.5 be better? Need to think more about this. However Paul Bürkner had some helpful [advice](https://github.com/paul-buerkner/brms/issues/36#issuecomment-175318551): set the slope priors incredibly wide, use a $N(0,10$ to just generally shift the coeff away from the extreme values which are less likely. 
+
+```{r}
+tibble(`Normal(0,10)` = rnorm(10000, 0, 10)) %>%  
+  mutate(`Outcome Scale` = plogis(`Normal(0,10)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,10)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Slope ('b') Prior - Normal(0,10)")
+```
+
+Hmmmm, yes. Remember that the sd of the $N(·)$ changes how deep that dip is after its converted back to the outcome scale? Funny that Paul Bürkner had suggested this.. Perhaps something weaker?
+
+```{r}
+tibble(`Normal(0,1)` = rnorm(10000, 0, 1)) %>%  
+  mutate(`Outcome Scale` = plogis(`Normal(0,1)`)) %>% 
+  pivot_longer(cols = c(`Normal(0,1)`, `Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  theme(legend.position="bottom",legend.title = element_blank()) +
+  xlim(-5,5) + xlab(NULL) +
+  ggtitle("Selected Slope ('b') Prior - Normal(0,1)")
+```
+
+Looks great.
+
+***
+
+### Summary of Chosen Priors
+
+Just a reminder that the chosen priors are: 
+
+- one for the `beta` Intercept of the model - $N(-3,2)$  
+- one for the dispersion coeff of the `beta`, phi - $student_t(3, 0, 2.5)$ or $N(-1,2)$  
+- one for the intercept of the zero inflated probability, zi - $logistic(0, 0.75)$  
+- one for the `b` slope parameters - $N(0,1)$
+
+
+# Moment of Truth: Running the Model
 
 
 
 
+```{r}
+cl_zi_prior_spec_bf <-bf(
+  irrfrac ~ 1 + rugged + population + income + medHumid,
+  phi ~ 1 ,
+  zi ~ 1 + income)
+
+priors <- c(set_prior("normal(-3,2)", class = "Intercept"), #Global Intercept
+            set_prior("student_t(3, 0, 2.5)", class = "Intercept", dpar = "phi"), #phi Intercept
+            set_prior("logistic(0, 0.75)", class = "Intercept", dpar = "zi"), #zi Intercept
+            set_prior("normal(0,1)", class = "b")) #slope parameters
+
+
+cl_zi_prior_spec <-
+  brm(
+    formula = cl_zi_prior_spec_bf,
+    family = zero_inflated_beta(),
+    prior = priors,
+    data = aei, 
+    cores = 4,
+    seed = 17,
+    file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/zi_prior_tries_1"
+  )
+
+```
+
+```{r}
+print(cl_zi_prior_spec)
+
+```
+```{r}
+
+posterior_samples(cl_zi_prior_spec, pars = "b_")[,1:8] %>% 
+  #the old fashioned way, brute force.
+  mutate_at(c("b_phi_Intercept"), exp) %>% 
+  mutate_at(vars(-c("b_phi_Intercept")), plogis) %>% 
+  posterior_summary() %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Parameter") %>% 
+  kable(digits = 2) 
+```
+
+Now must interpret here... but perhaps we end this markdown here. 
+
+```{r}
+conditional_effects(cl_zi_prior_spec)
+```
+
+```{r}
+pp_check(cl_zi_prior_spec)
+```
+
+
+And a little `pp_check()` to finish. 
 
