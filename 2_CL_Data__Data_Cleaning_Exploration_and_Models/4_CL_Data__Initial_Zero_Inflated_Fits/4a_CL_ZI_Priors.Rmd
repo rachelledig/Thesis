@@ -359,7 +359,7 @@ tibble(`Normal(-1,2)` = rnorm(10000, -1, 2)) %>%
 
 Yeah this one would probably work, from a theoretical standpoint. However, at the moment the phi parameter is not the clearest to me, I will most likely continue to use the default provided by brms. Also this one looks very similar to the default student t.
 
-### The `bernoulli`
+## The `bernoulli`
 
 Now we move on to the zero inflated part, which in a `zero_inflated_beta()` is encapsulated by a bernoulli distribution. Which could look like this:
 $$
@@ -375,7 +375,7 @@ Where n = is a success, or in this case, the presence of some irrigation. Conver
 
 In the `zero_inflated_beta()`
 
-#### Default prior for `bernoulli`'s zi
+### Default prior for `bernoulli`'s zi
 
 Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again (so `plogis()`. 
 
@@ -394,7 +394,7 @@ tibble(`Logistic(0, 1)` = rlogis(10000, 0, 1)) %>%
 
 Ok, so a specified logistic(0, 1) prior when transformed is basically, a uniform distribution, from 0 to 1. This assumes that zi (or p, the proportion of data points that are irrigated) could occupy any value from 0 to 1, which is a completely fair assumption, if you knew nothing, which is kind of the case.
 
-#### Selecting Priors for `bernoulli`'s zi
+### Selecting Priors for `bernoulli`'s zi
 
 But let's think a bit, zi represents the proportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of the data, this is the case because if there were more than 80% of the data points with some value of irrigation, then the data would not really be zero inflated. 
 
@@ -435,7 +435,7 @@ tibble(`Normal(0,1)` = rnorm(10000, 0, 1)) %>%
 
 
 
-### The Slope (`b_`) Paramaters 
+## The Slope (`b_`) Paramaters 
 
 Recall that the slope parameters (`b_`) are given a default flat prior by brms. Which is about as improper and non descriptive as you can get! 
 
@@ -476,7 +476,7 @@ Looks great.
 
 ***
 
-### Summary of Chosen Priors
+## Summary of Chosen Priors
 
 Just a reminder that the chosen priors are: 
 
