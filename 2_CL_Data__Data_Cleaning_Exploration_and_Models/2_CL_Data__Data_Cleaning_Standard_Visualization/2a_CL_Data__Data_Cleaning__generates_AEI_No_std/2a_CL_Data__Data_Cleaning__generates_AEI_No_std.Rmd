@@ -56,6 +56,11 @@ cft <- read.csv(
 #humidity, PET, and precipitation
 hum_PET_prec <- read.csv(
   '/Volumes/RachelExternal/Thesis/Thesis/Data/hum_pet_prec.csv')
+#Political system from our world in data
+democracy <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/OurWorldInData_political-regime-updated2016.csv")
+#More political system data from center for systemic peace
+syspeace <-
+  read.csv2("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/CenterForSystematicPeacePolity.csv")
 
 ```
 
@@ -532,7 +537,7 @@ cft$ISO <- as.factor(cft$ISO)
 cft <- cft[, -c(1)] #remove id col
 cft <- subset(cft, year >= 1910)
 
-cft2 <-
+cft <-
   cft %>%
   select(-c(4)) %>% #removing precip
   mutate_each(funs(.*cellaream2), c(4:35)) %>% #multiply all fractions with the cell area
@@ -567,10 +572,100 @@ rm(rug, rugged)
 
 ```
 
+
+## Political System
+
+This data is from [ourworldindata](https://ourworldindata.org/democracy#world-maps-of-political-regimes-over-200-years) and is the democracy index for the last 200 years. There are some gaps due to country codes and such. I will use the raw data used to create this data from the [Center for systematic peace](https://www.systemicpeace.org/inscrdata.html) to fill in the gaps where I can. 
+
+
+
+```{r}
+#merge democracy to aei
+
+colnames(democracy) <- c("country", "ISO", "year", "polity")
+democracy <- democracy[,-1]
+
+polity <-
+  aei %>% 
+  select(ISO, year, aei_ha, country) %>% 
+  left_join(., democracy, by = c("ISO", "year")) #merge based on aei ISO
+
+missing <-
+  polity %>% 
+  subset(., is.na(.$polity)) %>% #select those with no polity
+  mutate( month = "01", day = "01", 
+          year = as.Date(with(., paste(year, month, day,sep="-")), 
+                          "%Y-%m-%d")) %>% #fix the dates so we can merge 
+  select(ISO, year, polity, country)
+
+```
+
+```{r}
+#deal with center for systemic peace data
+syspeace <- syspeace[, -c(8:20)] #take some rows
+syspeace$date <- as.Date(with(syspeace, paste(byear, bmonth, bday,sep="-")), "%Y-%m-%d") #make some dates
+syspeace <- syspeace[, -c(4:7)] 
+colnames(syspeace) <- c("ISO", "country","polity", "year")
+
+#quick flip for russia
+syspeace$ISO <- replace(as.character(syspeace$ISO), syspeace$ISO == "USR", "RUS")
+  
+#merge syspeace with missing
+
+aei<-
+  merge(missing, syspeace, by = c("ISO", "year", "polity", "country"), all = TRUE) %>% 
+  arrange(., ISO, year) %>% 
+  group_by(ISO) %>% 
+  fill(polity, .direction = "down") %>% 
+  ungroup() %>% 
+  subset(year == "1910-01-01" | 
+           year == "1920-01-01" |
+           year == "1930-01-01" |
+           year == "1940-01-01" |
+           year == "1950-01-01" |
+           year == "1960-01-01" |
+           year == "1970-01-01" |
+           year == "1980-01-01" |
+           year == "1985-01-01" |
+           year == "1990-01-01" |
+           year == "1995-01-01" |
+           year == "2000-01-01" | 
+           year == "2005-01-01" ) %>%  #ok filled a couple of gaps.
+  select(ISO, year, polity) %>% 
+  mutate(year = as.character(year), 
+         year = str_replace(year, '-01-01', ""),
+         year = as.numeric(year)) %>% 
+  merge(., democracy, by = c("ISO", "year", "polity"), all = TRUE) %>% 
+  merge(., aei, by = c("ISO", "year"), all.y = TRUE) %>% 
+  subset(., select=c(1:2, 4:55, 3))
+```
+
+```{r}
+aei <- aei %>%
+  add_column(polity_case = NA)
+aei[which(aei$polity>= -10 & aei$polity<= -6), 'polity_case'] <- "Autocracy"
+aei[which(aei$polity>= -5 & aei$polity<= 0), 'polity_case'] <- "Closed_Anocracy"
+aei[which(aei$polity>= 1 & aei$polity<= 5), 'polity_case'] <- "Open_Anocracy"
+aei[which(aei$polity>= 6 & aei$polity<= 10), 'polity_case'] <- "Democracy"
+aei[which(aei$polity== -20 ), 'polity_case'] <- "Colony/Non-State"
+aei[which(aei$polity== -66 ), 'polity_case'] <- "Interruption"
+aei[which(aei$polity== -77 ), 'polity_case'] <- "Interregnum"
+aei[which(aei$polity== -88 ), 'polity_case'] <- "Transition"
+aei$polity_case <- as.factor(aei$polity_case)
+```
+
+
+
 Save that!
 ```{r}
 #write.csv(aei, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_NoStd.csv")
 ```
+
+
+
+***
+
+
 
 
 # References

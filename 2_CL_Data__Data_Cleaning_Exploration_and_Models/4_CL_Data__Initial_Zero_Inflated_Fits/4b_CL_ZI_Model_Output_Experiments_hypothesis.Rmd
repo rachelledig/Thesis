@@ -1,0 +1,11 @@
+---
+title: "Experimenting with Model Output - `hypothesis()`"
+author: "Rachel Ledig"
+date: "4/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+

@@ -53,14 +53,21 @@ A lot of these predictors I assume accumulate exponentially. Population, Income 
 - _Crop Fractoins_ - Center
 
 ```{r}
+summary(aei_no_std)
+```
+
+
+```{r}
 #these functions are coming from Thesis_Functions.R, loaded in the beginning
+
 aei_std <-
   aei_no_std %>% 
-  select(-c(20, 21,24,28)) %>% 
+  select(-c(20, 21,24,28)) %>% #removing mean Humid and PET
   mutate(across(c(17:19, 23), log)) %>% 
   #centering by dividing by 2sd, so that 95% of the distribution is from [-1,1]
   mutate(across(c(8, 17:19, 20:23, 25:51), centered)) %>% 
-  mutate(across(c(24), normalized))
+  mutate(across(c(24), normalized)) %>% 
+  mutate(polity_case = as.factor(polity_case))
 
 summary(aei_std)
   
