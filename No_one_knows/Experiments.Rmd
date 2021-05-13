@@ -1,0 +1,86 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+gw <- read.csv2(file.choose())
+
+match <- 
+  aei %>% 
+  select(ISO, country)
+
+
+gwant <- left_join(match, gw, by = "country") %>% 
+  unique()
+
+gwant$REGION <- as.factor(gwant$REGION)
+gwant$SUBREGION <- as.factor(gwant$SUBREGION)
+
+theme_set(theme_minimal())
+
+ggplot(data = gwant,
+       aes(x=REGION, y=AEI_GW/AEI, fill=SUBREGION)) + 
+  geom_boxplot(show.legend = FALSE)  +
+  ylim(0, 1) +
+  coord_flip() +
+  theme(legend.title = element_blank())
+```
+
+```{r}
+
+ggplot(data = gwant,
+       aes(x=REGION, y=AEI_SW/AEI, fill=SUBREGION)) + 
+  geom_boxplot(show.legend = TRUE)  +
+  ylim(0, 1) +
+  coord_flip() +
+  theme(legend.title = element_blank())
+```
+
+
+
+```{r}
+fao<- read.csv(file.choose())
+fao2 <- fao[, -c(1:3, 5:7, 9, 13, 14)]
+fao2 <- subset(fao2, Item == "Land area equipped for irrigation" | Item == "Cropland") 
+fao3 <- fao2 %>% 
+  pivot_wider(names_from = Item, values_from = Value) %>% 
+  mutate(irrfrac = `Land area equipped for irrigation`/Cropland)
+
+hist(fao3$irrfrac, breaks = 1000, xlim = c(0, 1))
+
+```
+
+
+```{r}
+aei %>% 
+  subset(country == "Pakistan" & year >= 1960) %>% 
+  ggplot() + geom_line(aes(x=year, y= irrfrac)) + ggtitle("irrfrac = irrigated area/total country area for Pakistan")
+```
+
+```{r}
+fao3 %>% 
+  subset(Area == "Pakistan") %>% 
+  ggplot() + geom_line(aes(x=Year, y= aei_frac))
+```
+
+```{r}
+pakistan <- 
+  aei %>% select(aei_ha, country, year) %>% 
+  subset(country == "Pakistan" & year >= 1960) 
+
+fao3 %>% 
+  subset(Area == "Pakistan") %>%
+  rename(year = Year, country = Area) %>% 
+  left_join(pakistan, by = c("year", "country")) %>% 
+  mutate(irrfrac2 = aei_ha/(Cropland*1000)) %>% 
+  ggplot() + geom_line(aes(x=year, y= irrfrac2)) + ggtitle("irrfrac = irrigated area/total cropland area for Pakistan")
+
+
+```
+
+
