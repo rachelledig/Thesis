@@ -65,13 +65,21 @@ aei_std <-
   select(-c(20, 21,24,28)) %>% #removing mean Humid and PET
   mutate(across(c(17:19, 23), log)) %>% 
   #centering by dividing by 2sd, so that 95% of the distribution is from [-1,1]
-  mutate(across(c(8, 17:19, 20:23, 25:51), centered)) %>% 
-  mutate(across(c(24), normalized)) %>% 
+  mutate(across(c(8, 17:19, 20:23, 25:50), centered)) %>% 
+  mutate(across(c(24, 51), normalized)) %>% 
   mutate(polity_case = as.factor(polity_case))
 
 summary(aei_std)
+
+cols <- c("ISO","country",  "four_regions", "six_regions", "eight_regions", "World.bank.region", "polity_case")
+
+aei_std <- aei_std  %>% 
+  mutate_each_(funs(factor(.)),cols)
+
+str(aei_std)
   
-#write.csv(aei_std, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std.csv")
+
+#write.csv(aei_std, "/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std_polity.csv")
 ```
 
 
