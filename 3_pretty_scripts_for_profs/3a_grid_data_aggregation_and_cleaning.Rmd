@@ -1,0 +1,510 @@
+---
+bibliography: "/Volumes/RachelExternal/Thesis/Thesis/references.bib"
+---
+
+# Data Acquisition and Manipulation
+
+```{r}
+iFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Grid_Data_Scripts/"
+oFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/"
+load(file=paste0(iFol,"data.RData"))
+load(file=paste0(iFol,"cftfrac.RData"))
+load(file=paste0(iFol,"countryData_67420.RData"))
+load(file=paste0(iFol,"pet_data.RData"))
+source(file=paste0(iFol,"lpjmliotools_20201104.R"))
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+
+```
+
+**Taken from Dr. Fabian Stenzel and LPJmL**
+
+```{r}
+ncells=67420
+plotting=T
+```
+
+data.Rdata contains:
+
+-   distNextIrr [1:67420, 1:105]: distance (in km) for each gridcell to next irrigated cell at that time
+
+-   irrFrac: fraction (0..1) of cell that is irrigated lat/lon: latitude (-90..90)/longitude (-180..180) of each lpjml gridcell
+
+-   lpjGDPpc: GDP per capita (2011 US dollars/cap) for each lpj-grid
+
+-   mean_increase [1:67420, 1:105]: mean increase in productivity (delta gC/m2) in each gridcell across all crops
+
+-   median_increase [1:67420, 1:105]: median increase in productivity (delta gC/m2) in each gridcell across all crops
+
+-   popdens [1:67420, 1:111]: population density (cap/km2) starting 1901 to 2011
+
+-   globalIrrigArea: Mha discharge_landuse [1:67420, 1:12, 1:105]: (hm)3/d == (1.000.000 m3)/d
+
+-   prec_landuse [1:67420, 1:12, 1:105]: monthly precipitation (mm/month)
+
+-   runoff_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that is not consumed and is handed over to the next gridcell in the riverrouting (mm/month)
+
+-   transp_green_landuse [1:67420, 1:12, 1:105]: amount of green water (fed by precipitation) that is transpired by plants (mm/month)
+
+-   transp_blue_landuse [1:67420, 1:12, 1:105]: amount of blue water (fed by irrigation) that is transpired by plants (mm/month)
+
+-   evap_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that evaporates on bare soil (mm/month)
+
+-   interc_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that evaporates from plants leaves (is intercepted -- never reaches the ground) (mm/month)
+
+cftfrac.RData contains:
+
+-   cftfrac [1:67420, 1:32, 1:105]: fraction of gridcell cultivated with the given cft (crop functional type); cft 1-16 are the rainfed fractions, 17-32 the irrigated ones - the sum of which you have already in irrFrac
+
+1.  Temperate cereals (wheat, rye, barley; wheat)
+
+2.  Rice (paddy rice; rice)
+
+3.  Maize (maize for food; maize)
+
+4.  Tropical cereals (millet, sorghum; millet)
+
+5.  Pulses (pulses; field peas)
+
+6.  Temperate roots (sugar beet; sugar beet)
+
+7.  Tropical roots (cassava; cassava)
+
+8.  Sunflower (sunflower; sunflower)
+
+9.  Soybean (soybean; soybean)
+
+10. Groundnuts (groundnuts; groundnuts)
+
+11. Rapeseed (rapeseed; rapeseed)
+
+12. Sugarcane (sugarcane: sugarcane)
+
+13. others (potatoes, oil palm, citrus, date palm, grapes/vine, cotton, cocoa, coffee, other perennial crops, other annual crops; managed grassland)
+
+14. managed grasslands (pastures; managed grasslands)
+
+15. bio-energy grass
+
+16. bio-energy tree
+
+countryData_67420.RData contains:
+
+-   fullCountryData - data.frame, which contains for every grid cell the LPJmL country id (COW), the LPJmL regional code (REG) - both defined in "include/managepar.h", the more of less official english Countryname, and the international 3 character ISO code
+
+    example usage: `countryIrrfrac2005=aggregateLPJmLdata2Country(input=irrFrac[,105]*cellarea,cowList = fullCountryData ISO,aggMethod = "sum")`
+
+    `plotCountryData(data = countryIrrfrac2005/10^6,sty="log",cowList = fullCountryData$ISO,file = paste0(oFol,"countryIrrFrac2005.png"),title = "Country specific total irrigated area",legendtitle = "km2")`
+
+pet_data.RData contains
+
+-   total_PET [1:67420, 1:12, 1:105]: Monthly Potential Evapotranspiration (mm/month) for each gridcell and year under historic landuse
+
+-   total_PET_allcrops [1:67420, 1:12, 1:105]: Monthly Potential Evapotranspiration (mm/month) for each gridcell and year under synthetic allcrops conditions (not sure if this is at all helpful)
+
+# Country Level Data Aggregation
+
+Goal: Create an aggregated country level data set for the first analysis
+
+```{r}
+#fix cellarea before we start
+cellarea <- (111194.9/2)*(111194.9/2)*cos(lat/180*pi) 
+
+yearcount <- seq(60, 105, by = 5 )
+
+```
+
+## Total Country Area and Metadata
+
+```{r}
+
+cl_ha <- NULL
+cl_ha <- aggregateLPJmLdata2Country(input=cellarea/10000 , #ha conversion
+                                    cowList = fullCountryData$ISO,
+                                    aggMethod = "sum")
+
+
+cl_ha <- as.data.frame(cl_ha)
+colnames(cl_ha) <- "country_area_ha"
+
+aei <- as.data.frame(cl_ha)
+aei$ISO <- row.names(aei)
+aei$ISO <- as.factor(aei$ISO)
+
+
+#add countrynames
+aei <- fullCountryData %>% 
+  select(ISO, Countryname) %>% 
+  unique() %>% 
+  right_join(., aei, by = "ISO")
+
+#some metadata for later analysis
+meta <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
+
+
+#fix the factors
+meta <- 
+  meta%>%
+  select(-name) %>% 
+    mutate_if(is.character,as.factor)
+
+
+aei <- left_join(
+  aei, 
+  meta, 
+  by = "ISO"
+)
+```
+
+## Cropland Area
+
+Goal: total cropland area for each country
+
+```{r}
+Cropland = apply(cftfrac[,1:32,],c(1,3),sum) #summing all the crop fractions per grid cell
+cropland_cl_ha <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=Cropland[,i]*cellarea, #multiplying by cell area
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "sum")
+  new_col <- new_col/10000 #m2 to ha conversion
+  cropland_cl_ha <- cbind(cropland_cl_ha, new_col)
+}
+colnames(cropland_cl_ha) <- yearcount
+cropland_cl_ha <- as.data.frame(cropland_cl_ha)
+cropland_cl_ha$ISO <- row.names(cropland_cl_ha)
+cropland_cl_ha$ISO <- as.factor(cropland_cl_ha$ISO)
+
+rm(Cropland)
+
+#pivot for tidy data
+cropland_cl_ha <- pivot_longer(
+  cropland_cl_ha, 
+  c(1:10),
+  names_to = "yearcount", 
+  values_to = "cropland_ha"
+)
+
+#merge to country area data
+aei <- left_join(
+  aei, 
+  cropland_cl_ha, 
+  by = "ISO"
+)
+
+aei$yearcount <- as.numeric(aei$yearcount)
+
+rm(cropland_cl_ha)
+```
+
+## Irrigation Fraction
+
+Irrigation Fraction for each country for 5 year timesteps
+
+```{r}
+irr_cl_ha <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=irrFrac[,i]*cellarea,
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "sum")
+  new_col <- new_col/10000 #m2 to ha conversion
+  irr_cl_ha <- cbind(irr_cl_ha, new_col)
+}
+colnames(irr_cl_ha) <- yearcount
+
+
+irr_cl_ha <- as.data.frame(irr_cl_ha)
+irr_cl_ha$ISO <- row.names(irr_cl_ha)
+irr_cl_ha$ISO <- as.factor(irr_cl_ha$ISO)
+
+#pivot for tidy data
+irr_cl_ha <- pivot_longer(
+  irr_cl_ha, 
+  c(1:10),
+  names_to = "yearcount", 
+  values_to = "irrigated_ha"
+)
+
+irr_cl_ha$yearcount <- as.numeric(irr_cl_ha$yearcount )
+
+#merge to big dataframe
+aei <- left_join(
+  aei, 
+  irr_cl_ha, 
+  by = c("ISO", "yearcount")
+)
+
+rm(irr_cl_ha)
+```
+
+## Creation of Irrigation Fraction on with two metrics
+
+```{r}
+aei <- aei %>% 
+  mutate(
+  if_total_area = irrigated_ha/country_area_ha, 
+  if_crop_area = irrigated_ha/cropland_ha
+)
+
+#fix the NaNs from dividing by 0 cropland area
+aei$if_crop_area[is.nan(aei$if_crop_area)]<-0
+```
+
+Removing countries with less than 5 cells, at the equator. These consist of mainly islands.
+
+```{r}
+
+counts <- 
+  fullCountryData %>% 
+  group_by(ISO, Countryname) %>% 
+  count() %>% 
+  subset(n <= 5) 
+
+aei <- aei %>% 
+  anti_join(., counts, by = "ISO")
+
+
+```
+
+## Total Population
+
+Using `library(wbstats)` which gives direct access to the world bank datasets.
+
+```{r}
+library(wbstats)
+
+aei <- wb_data("SP.POP.TOTL", start_date = 1960, end_date = 2005) %>% 
+  select(iso3c, date, SP.POP.TOTL) %>% 
+  rename(ISO = iso3c, year = date, total_pop = SP.POP.TOTL) %>% 
+  mutate(yearcount = year - 1900) %>% 
+  select(ISO, yearcount, total_pop) %>% 
+  left_join(aei, ., by = c("ISO", "yearcount"))
+```
+
+## Rural Population
+
+Using `library(wbstats)` which gives direct access to the world bank datasets.
+
+```{r}
+aei <- wb_data("SP.RUR.TOTL.ZS", start_date = 1960, end_date = 2005) %>% 
+  select(iso3c, date, SP.RUR.TOTL.ZS) %>% 
+  rename(ISO = iso3c, year = date, rural_pop_perc = SP.RUR.TOTL.ZS) %>% 
+  mutate(yearcount = year - 1900, 
+         rural_pop_frac = rural_pop_perc/100) %>% 
+  select(ISO, yearcount, rural_pop_frac) %>% 
+  left_join(aei, ., by = c("ISO", "yearcount")) 
+```
+
+## Income
+
+Using `library(wbstats)` which gives direct access to the world bank datasets.
+
+```{r}
+aei <- wb_data("NY.GDP.PCAP.CD", start_date = 1900, end_date = 2005) %>% 
+  select(iso3c, date, NY.GDP.PCAP.CD) %>% 
+  rename(ISO = iso3c, year = date, gdp_pc = NY.GDP.PCAP.CD) %>% 
+  mutate(yearcount = year - 1900) %>% 
+  select(ISO, yearcount, gdp_pc) %>% 
+  left_join(aei, ., by = c("ISO", "yearcount")) 
+
+```
+
+## PET
+
+```{r}
+job::job({median_PET <- apply(total_PET,c(1,3),median) })#take the median once
+job::job({median_pet <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=median_PET[,i], #take the median twice
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "median") 
+  median_pet <- cbind(median_pet, new_col)})
+}
+colnames(median_pet) <- yearcount
+
+```
+
+## Precipitation
+
+```{r}
+
+```
+
+## Humidity
+
+## Ruggedness
+
+Using data from @rileyTerrainRuggednessIndex1999 contained in the package `rethinking`
+
+```{r}
+library(rethinking)
+data("rugged")
+aei <- rugged %>% select(c("isocode", "rugged")) %>% 
+  rename(ISO = isocode) %>% 
+  left_join(aei, ., by = c("ISO"))
+
+
+
+```
+
+## Polity
+
+Using data from \@
+
+```{r}
+#More political system data from center for systemic peace
+syspeace <-
+  read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Polity_center_for_systemic_peace.csv")
+syspeace$polity2[is.na(syspeace$polity2)] <- "X"
+
+#fixing the codes
+library(countrycode)
+aei <- syspeace %>% 
+  mutate(ISO = countrycode(ccode, origin = 'cown', destination = 'iso3c'),
+         yearcount = year - 1900) %>% 
+   select(ISO, yearcount, polity, polity2) %>% 
+  left_join(aei, ., by = c("ISO", "yearcount"))
+```
+
+### Restructuring the Cold War period
+
+Fixing the **USSR bloc** as these countries are missing data from before 1991. Countries included in the USSR bloc taken from @pipesSovietUnion2020.
+
+```{r}
+USSR <- c("Armenia", "Azerbaijan", "Belarus", "Estonia", "Georgia", "Kazakhstan","Kyrgyzstan", "Latvia", "Lithuania", "Moldova", "Russia", "Tajikistan", "Turkmenistan", "Ukraine",  "Uzbekistan")
+
+USSR_iso <- countrycode(USSR, origin = "country.name", destination = "iso3c")
+USSR_iso_list <- rep(USSR_iso, each = 7)
+
+aei  <- syspeace %>%
+  filter(scode == "USR") %>%
+  mutate(years = year - 1900) %>% 
+  rename(ISO = scode) %>% 
+  select(ISO, years, polity, polity2) %>% 
+  filter(years %in% yearcount) %>%
+  slice(rep(row_number(), 15)) %>% 
+  mutate(ISO = USSR_iso_list,
+         yearcount = years) %>% 
+  select(ISO, yearcount, polity, polity2) %>% 
+  full_join(aei, ., by = c("ISO", "yearcount")) %>% 
+    mutate(
+        polity = coalesce(polity.x,polity.y), 
+        polity2 = coalesce(polity2.x, polity2.y)) %>% 
+  select(-c(polity.x, polity.y, polity2.x, polity2.y))
+
+```
+
+**Yugoslavia**
+
+> "The postwar Socialist Federal Republic of Yugoslavia (Socijalistička Federativna Republika Jugoslavija) covered 98,766 square miles (255,804 square km) and had a population of about 24 million by 1991. In addition to Serbia and Montenegro, it included four other republics now recognized as independent states: [Bosnia and Herzegovina](https://www.britannica.com/place/Bosnia-and-Herzegovina), [Croatia](https://www.britannica.com/place/Croatia), [North Macedonia](https://www.britannica.com/topic/history-of-Macedonia), and [Slovenia](https://www.britannica.com/place/Slovenia). The "third Yugoslavia," inaugurated on April 27, 1992, had roughly 45 percent of the population and 40 percent of the area of its predecessor and consisted of only two republics, Serbia and Montenegro, which agreed to abandon the name Yugoslavia in 2003 and rename the country Serbia and Montenegro." [@allcockYugoslavia2020]
+
+```{r}
+yugoslavia <- c("Serbia", "Montenegro", "Bosnia and Herzegovina", "Croatia", "North Macedonia","Slovenia")
+yugo_iso <- countrycode(yugoslavia, origin = "country.name", destination = "iso3c")
+
+yugo_iso_list <- rep(yugo_iso, each = 7)
+
+#years of Socialist Federal Republic of Yugoslavia (YUG)
+aei  <- syspeace %>%
+  filter(scode == "YUG") %>%
+  mutate(years = year - 1900) %>% 
+  rename(ISO = scode) %>% 
+  select(ISO, years, polity, polity2) %>% 
+  filter(years %in% yearcount) %>%
+  slice(rep(row_number(), 6)) %>% 
+  mutate(ISO = yugo_iso_list,
+         yearcount = years) %>% 
+  select(ISO, yearcount, polity, polity2) %>% 
+  full_join(aei, ., by = c("ISO", "yearcount")) %>% 
+    mutate(
+        polity = coalesce(polity.x,polity.y), 
+        polity2 = coalesce(polity2.x, polity2.y)) %>% 
+  select(-c(polity.x, polity.y, polity2.x, polity2.y))
+
+
+#years of “third Yugoslavia” (YGS) from 1992-2003
+yugo_3_iso_list <- c("SRB", "SRB", "SRB","MNE", "MNE", "MNE")
+
+aei  <- syspeace %>%
+  filter(scode == "YGS") %>%
+  mutate(years = year - 1900) %>% 
+  rename(ISO = scode) %>% 
+  select(ISO, years, polity, polity2) %>% 
+  filter(years %in% yearcount) %>%
+  slice(rep(row_number(), 2)) %>% 
+  mutate(ISO = yugo_3_iso_list,
+         yearcount = years) %>% 
+  select(ISO, yearcount, polity, polity2) %>% 
+  full_join(aei, ., by = c("ISO", "yearcount")) %>% 
+    mutate(
+        polity = coalesce(polity.x,polity.y), 
+        polity2 = coalesce(polity2.x, polity2.y)) %>% 
+  select(-c(polity.x, polity.y, polity2.x, polity2.y))
+
+```
+
+**Czechoslovakia**
+
+Finally, Czech Republic and Slovakia. Prior to 1992, Czechoslovakia was composed of the Czech Republic and Slovakia [@britannicaCzechoslovakia2020].
+
+```{r}
+
+CZE_years <- seq(from = 60, to = 90, by = 5)
+CZE_iso_list <- rep(c("CZE", "SVK"), each = 7)
+
+aei  <- syspeace %>%
+  filter(scode == "CZE") %>%
+  mutate(years = year - 1900) %>% 
+  rename(ISO = scode) %>% 
+  select(ISO, years, polity, polity2) %>% 
+  filter(years %in% CZE_years) %>%
+  slice(rep(row_number(), 2)) %>% 
+  mutate(ISO = CZE_iso_list,
+         yearcount = years) %>% 
+  select(ISO, yearcount, polity, polity2) %>% 
+  full_join(aei, ., by = c("ISO", "yearcount")) %>% 
+    mutate(
+        polity = coalesce(polity.x,polity.y), 
+        polity2 = coalesce(polity2.x, polity2.y)) %>% 
+  select(-c(polity.x, polity.y, polity2.x, polity2.y))
+
+```
+
+Lastly, fixing those countries that were Colonies. Data taken from @roserDemocracyPoliticalRegime2013 and @wimmerEmpireNationStateExplaining2006.
+
+```{r}
+colonies <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/OurWorldInData_political-regime-updated2016.csv")
+
+colonies <- colonies %>% 
+  subset(Political.Regime..OWID.based.on.Polity.IV.and.Wimmer...Min. == -20) %>% 
+  mutate(years = Year - 1900) %>% 
+  filter(years %in% yearcount) %>% 
+  filter(Code  %in% USSR_iso == FALSE) %>% 
+  rename(political = Political.Regime..OWID.based.on.Polity.IV.and.Wimmer...Min., 
+         ISO = Code, 
+         yearcount = years) %>% 
+  mutate(political = replace(political, political == -20, "C")) %>% 
+  full_join(., subset(aei, is.na(polity), by = c("ISO", "yearcount")))
+
+aei_pol_gaps <- subset(aei, is.na(polity))
+  
+```
+
+```{r}
+aei <- aei %>%
+  add_column(polity_case = NA)
+aei[which(aei$polity>= -10 & aei$polity<= -6), 'polity_case'] <- "Autocracy"
+aei[which(aei$polity>= -5 & aei$polity<= 0), 'polity_case'] <- "Closed_Anocracy"
+aei[which(aei$polity>= 1 & aei$polity<= 5), 'polity_case'] <- "Open_Anocracy"
+aei[which(aei$polity>= 6 & aei$polity<= 10), 'polity_case'] <- "Democracy"
+aei[which(aei$polity== -20 ), 'polity_case'] <- "Colony/Non-State"
+aei[which(aei$polity== -66 ), 'polity_case'] <- "Interruption"
+aei[which(aei$polity== -77 ), 'polity_case'] <- "Interregnum"
+aei[which(aei$polity== -88 ), 'polity_case'] <- "Transition"
+aei$polity_case <- as.factor(aei$polity_case)
+```
+
+# Construction of the Grid Cell Dataset

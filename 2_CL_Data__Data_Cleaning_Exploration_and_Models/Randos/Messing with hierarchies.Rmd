@@ -1,0 +1,98 @@
+---
+title: "At this point what the fuck is happening"
+author: "Rachel Ledig"
+date: "5/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#read the file, if you dont have it from the previous markdown. 
+aei_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI_Std_polity.csv")
+```
+
+```{r}
+library(brms)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+```
+
+```{r}
+multilevel_1_bf <-bf(
+  irrfrac ~ 1 + rugged + population + income + medHumid + polity_case + (1|four_regions),
+  zi ~ 1 + income + polity_case)
+
+multilevel_1_prior <-
+  c(set_prior("normal(-3,2)", class = "Intercept"), #Global Intercept
+    set_prior("logistic(0, 0.75)", class = "Intercept", dpar = "zi"), #zi Intercept
+    set_prior("normal(0,1)", class = "b")) #slope parameters
+
+
+multilevel_1 <-
+  brm(
+    formula = multilevel_1_bf,
+    family = zero_inflated_beta(),
+    prior = multilevel_1_prior,
+    data = aei_std, 
+    cores = 4,
+    seed = 23,
+    file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/multilevel_1"
+  )
+```
+
+
+```{r}
+
+multilevel_1priorpred <-
+  brm(
+    formula = multilevel_1_bf,
+    family = zero_inflated_beta(),
+    prior = multilevel_1_prior,
+    sample_prior = "only",
+    data = aei_std, 
+    cores = 4,
+    seed = 23,
+    file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/multilevel_1priorpredict"
+  )
+```
+
+```{r}
+multilevel_2_bf <-bf(
+  irrfrac ~ 1 + rugged + population + income + medHumid + polity_case + (1 + population + income|four_regions),
+  zi ~ 1 + income + polity_case)
+
+get_prior(multilevel_2_bf)
+
+multilevel_2_prior <-
+  c(set_prior("normal(-3,2)", class = "Intercept"), #Global Intercept
+    set_prior("logistic(0, 0.75)", class = "Intercept", dpar = "zi"), #zi Intercept
+    set_prior("normal(0,1)", class = "b")) #slope parameters
+
+
+job::job({
+  multilevel_2 <-
+  brm(
+    formula = multilevel_2_bf,
+    family = zero_inflated_beta(),
+    prior = multilevel_2_prior,
+    data = aei_std, 
+    cores = 4,
+    seed = 23,
+    file = "/Volumes/RachelExternal/Thesis/Thesis/fits/CL_Zero_Inflated_Fits/multilevel_2"
+  )})
+```
+
+```{r}
+print(multilevel_2)
+conditional_effects(multilevel_2)
+
+```
+
+```{r}
+pp_check(multilevel_2)
+```
+

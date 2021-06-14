@@ -32,7 +32,7 @@ library(magclass)
 library(viridis)
 library(hrbrthemes)
 
-iFol="/Volumes/RachelExternal/Thesis/DataFabian/Data/"
+iFol="/Volumes/RachelExternal/Data_upload_/DataFabian/Data/"
 oFol="/Volumes/RachelExternal/Thesis/DataFabian/plots/"
 load(file=paste0(iFol,"data.RData"))
 load(file=paste0(iFol,"datacftfrac.RData"))

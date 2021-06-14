@@ -1,0 +1,221 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+Necessary: 
+d <- data
+mpd2018 <- GDP data
+
+### Housekeeping    
+```{r warning=FALSE, message=FALSE}
+library(brms)
+library(rstan)
+library(dplyr)
+library(tidyr)
+library(plotly)
+library(ggplot2)
+library(rethinking)
+```
+
+## Data  
+  
+
+So data has been collected, cleaned and organized. Lets do a short introduction to what we're working with here. 
+
+#### Target Variable  
+  
+* $Y$ - Irrigation Percentage - the percentage of the country that is irrigated. This is calculated by grouping cells by country name and year to calculate the sum of the irrigated area, then divide by the total calculated area of the country. I wont scale the outcome variable as its already scaled from 0 to 1. 
+
+```{r include=FALSE}
+#total irrigated fraction per country per year
+#no need to divide for km2 conversion, as final is unitless
+countrystats <- d %>%  group_by(countryname, ISO, year) %>% summarise(IrrFrac = ((sum(Frac*cellaream2))/sum(cellaream2)), Regions = unique(Region))
+countrystats$IrrFrac <- round(countrystats$IrrFrac, digits = 5)
+```
+
+```{r Irrigated Totals Graph, warning=FALSE}
+pirrfrac <- plot_ly(countrystats, x = ~year, y = ~IrrFrac, color = ~Regions, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+pirrfrac <- pirrfrac %>% layout(autosize = F, height = 500, width = 1000) 
+pirrfrac <- pirrfrac %>% layout(title = 'Total Irrigation Fraction per Country',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+pirrfrac
+```
+Although this graph has a lot of countries and can get quite messy, some general trends appear. Asian countries seem to have high percentages of irrigated area per total land area (irrigation percentage). Then seemingly followed by European countries. Africa and Oceania do not seem to be irrigated as much. Be aware that you can these graphs are interactive, you may zoom, pan or click on the legend to isolate the regions. Although, a regional breakdown follows.  
+***
+
+### Regional Breakdown of % of Area Irrigated  
+  
+```{r Africa Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirafrica <- plot_ly(subset(countrystats, Regions == "Africa" ), x = ~year, y = ~IrrFrac, color = ~countryname, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+pirafrica <- pirafrica %>% layout(autosize = F, height = 500, width = 1000) 
+pirafrica <- pirafrica %>% layout(title = 'Total Irrigation Fraction per African Countries',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+pirafrica
+```
+  
+In general, Africa has low levels of irrigated area. Swaziland, Morocco and Egypt lead with around 2.5-3% of total area being irrigated. However, as with all of the data for irrigated area, many countries have volatile curves that peak and fall repeatedly over the course of the last century. Here Morocco and Tunisia stand out.  
+  
+```{r Europe Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pireuro <- plot_ly(subset(countrystats, Regions == "Europe" ), x = ~year, y = ~IrrFrac, color = ~countryname, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+pireuro <- pireuro %>% layout(autosize = F, height = 500, width = 1000) 
+pireuro <- pireuro %>% layout(title = 'Total Irrigation Fraction per Europoean Countries',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+pireuro
+```
+  
+Europe contains some countries that reach higher percentages of irrigated area. Countries such as the Netherlands, Romania and Bulgaria have reached peaks in the past (roughly 10-15% irrigated area) but were in a decline towards the end our my study period. Other countries such as Italy and Portugal have had more stable rises with less down turn toward. Unexpectedly, Russia has a very low percentage of irrigated area, however at this point, the assumption is that either Russia's enormous size cancels out its irrigated area, or that Russia receives enough precipitation for the crops it grows that irrigation is not necessary. Further analysis should reveal this.  
+  
+
+```{r Americas Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+piramerica <- plot_ly(subset(countrystats, Regions == "Americas" ), x = ~year, y = ~IrrFrac, color = ~countryname, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+piramerica <- piramerica %>% layout(autosize = F, height = 500, width = 1000) 
+piramerica <- piramerica %>% layout(title = 'Total Irrigation Fraction per North and South American Countries',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+piramerica
+```
+  
+In the Americas, the % of area irrigated by countries is lower than Asia or Europe. Peaks here are Cuba and the Dominican Republic at around roughly 3-4% of their total countries being irrigated. These peak countries are cluttered around the equator, and although this is interesting it is not indicative of anything at the moment. The general trends of irrigation increase seem to be upward with perhaps a slight leveling off toward the end of the study period (for some countries) but lacking the distinct downturn that is seen in Europe.   
+  
+```{r Asia Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirasia <- plot_ly(subset(countrystats, Regions == "Asia" ), x = ~year, y = ~IrrFrac, color = ~countryname, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+pirasia <- pirasia %>% layout(autosize = F, height = 500, width = 1000) 
+pirasia <- pirasia %>% layout(title = 'Total Irrigation Fraction per Asian Countries',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+pirasia
+```
+  
+The Asian countries are really high in % of irrigated area. The four countries that reach upwards of (roughly) 15% or more of their total area irrigated toward the end of the study period are Bangladesh, India, Pakistan, and Azerbaijan, with Bangladesh reaching almost 30%. Some countries have interesting and volatile trajectories however. For example, seems to have 10 year cycles that peak and fall repeatdly toward the end of the study period.  
+  
+```{r Oceania Irrigated Totals Graph, echo=FALSE, warning=FALSE}
+pirocean <- plot_ly(subset(countrystats, Regions == "Oceania" ), x = ~year, y = ~IrrFrac, color = ~countryname, 
+                    type = 'scatter', mode = 'lines', 
+                    text = ~paste("Country :", countryname,"<br> Fraction :", IrrFrac,  "<br> Year :", year),
+                    textposition = "auto", hoverinfo = "text")
+pirocean <- pirocean %>% layout(autosize = F, height = 500, width = 1000) 
+pirocean <- pirocean %>% layout(title = 'Total Irrigation Fraction per Oceanian Countries',
+         xaxis = list(title = 'Year'),
+         yaxis = list(title = '% Irrigated Land of Total Area'))
+pirocean
+```
+  
+Oceania, due to its large amount of islands, does not have a lot of irrigation, majority of countries have 0% irrigation. New Zealand and Australia have some irrigation, with percentage of irrigated area at their peaks to be somewhere around 0.4% and 1.6%, respectively. Although this could have a multitude of reasons why irrigation is so low here, regardless of the fact that Australia and New Zealand are very populous countries with mouths to feed. Australia is very large and perhaps its enormity cancels out the irrigated land it does have.  
+  
+### Mean and Median % of Irrigated Area by Region  
+  
+It is clear from the graphs below that Asian countries have the highest rates of irrigation per country, followed by Europe, the Americas, Africa and finally Oceania. The same trends are present when means and medians are taken. Interestingly, the downturn in Europe is very apparent in these graphs, showing that the downturn of irrigated area in Europe began around the early 1990s.  
+```{r Mean and median, message=FALSE, warning=FALSE}
+##lets take some summary statistics
+#removing No_Land
+summary(subset(countrystats, countryname== "No_Land") )
+countrystats <-countrystats[!(countrystats$countryname=="No_Land"),]
+
+countrystats %>% group_by(Regions, year) %>% summarize(median = median(IrrFrac), mean = mean(IrrFrac))
+meansmeds <- countrystats %>% group_by(Regions, year) %>% summarize(median = median(IrrFrac), mean = mean(IrrFrac)) 
+
+ggplot(meansmeds) + geom_line(aes(y = median, x = year, group = Regions, color = Regions)) + theme(legend.title = element_blank()) +
+  scale_x_discrete(breaks = seq(1901, 2005, 10)) +
+  xlab("Years") +
+  ylab("% of Area Irrigated") +  
+  ggtitle(" Median % of Area Irrigated by Region ") 
+
+ggplot(meansmeds) + geom_line(aes(y = mean, x = year, group = Regions, color = Regions)) + theme(legend.title = element_blank()) +
+  scale_x_discrete(breaks = seq(1901, 2005, 10)) +
+  xlab("Years") +
+  ylab("% of Area Irrigated") +  
+  ggtitle("Mean % of Area Irrigated by Region ") 
+```
+***
+### Chosen Predictor Variables  
+
+According to the FAO, the choice of which irrigation, and by proxy whether to irrigate or not, comes from six factors. The predictor that will be used for this analysis are listed below:  
+
+- Economic 
+
+  - $M_c$ - Total GDP - Each country's total GDP, calculated from Maddison data for per capita GDP multiplied by total population. The logarithm will be used here because as stated in *Statistical Rethinking* McElreath states (pg. 239), "We use the logarithm of it, because the logarithm of GDP is the *magnitude* of GDP. Since wealth generates wealth, it tends to be exponentially related to anything that increases it"
+  
+- Topographical   
+
+  - $Ru_c$ - Represented here using the "rugged" data set from rethinking. This data was taken from Riley et al. 1999. 
+  
+- Soil Type  
+
+  - This will not be included in this analysis. Although, it could be useful there is no good way to quantify soil type on a country level basis. This will be included in the grid cell model, as regions can be easily integrated with the grid cell structure. 
+
+- Water Supply    
+
+  - $R_c$ - Total Precipitation -  Translated output from LPJmL. Summed across two dimensions: month and country. In mm/country/year
+- Crop Type   
+
+- Social Influences  
+
+  - $P_c$ - Total Population - Each country's total population on a yearly basis. Taken from https://ourworldindata.org/grapher/population. Again, this will be logged, due to the same argument for GDP, and centered.
+  
+All variables will be scaled or centered. 
+
+```{r include=FALSE}
+#GDP Population total
+gdppop <- read.csv2("/Volumes/RachelExternal/Thesis/Thesis/GDP_pop.csv", header = TRUE)
+#limits
+gdppop <- subset(gdppop, year >= 1901 & year <= 2005 & country != "Africa", select = c("countrycode", "year", "gdppc", "pop"))
+colnames(gdppop) <- c("ISO", "year", "gdppc", "poptotal")
+countrystats <- merge(countrystats, gdppop, on = c("ISO", "year"))
+rm(gdppop)
+#log (going to x+1 so that i dont have any pesky -infs) and standardize
+countrystats$log_poptotal <- log(countrystats$poptotal + 1)
+countrystats$log_poptotal_std <- countrystats$log_poptotal / mean(countrystats$log_poptotal)
+
+#precipitation
+precip <- d %>% group_by(countryname, year) %>% summarise(precip = (sum(precipmm)))
+countrystats <- merge(countrystats, precip, on = c("countryname", "year"))
+rm(precip)
+#scale
+countrystats$precip_std <- countrystats$precip / max(countrystats$precip)
+
+#GDP total
+GDP  <- read.csv("/Volumes/RachelExternal/Thesis/Thesis/mdp2020.csv")
+GDP <- subset(GDP, Year >= 1901 & Year <= 2005 & Entity != "Africa", select = c("Code", "Year", "Real.GDP.per.capita.in.2011US...multiple.benchmarks..Maddison.Project.Database..2018.."))
+colnames(GDP) <- c("ISO", "year", "gdpcap")
+countrystats <- merge(countrystats, GDP, on = c("ISO", "year"), all.x = TRUE)
+countrystats <- countrystats %>% mutate(GDPtot = GDPCap * poptotal)
+rm(GDP)
+#log and center..... 
+countrystats$log_gdp <- log(countrystats$GDPtot + 1)
+
+
+#rugged
+data("rugged")
+rug <- rugged %>% select(c("isocode", "rugged")) 
+colnames(rug) <- c("ISO", "rugged")
+countrystats <- merge(countrystats, rug, on = "ISO")
+rm(rug, rugged)
+#scale
+countrystats$rugged_std <- countrystats$rugged / max(countrystats$rugged)
+```
+
+
+```{r}
+
+```
+
+
+
