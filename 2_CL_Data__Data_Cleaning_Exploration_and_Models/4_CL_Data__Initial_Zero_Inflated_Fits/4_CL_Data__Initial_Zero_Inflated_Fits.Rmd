@@ -21,7 +21,8 @@ library(ggplot2)
 Necessary files:
 ```{r}
 #read the file, if you dont have it from the previous markdown. 
-aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_upload_for_CL/AEI.csv")
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/AEI_Std.csv")
+aei <- aei[, -c(1,2)]
 ```
 
 # Eight Region Model
@@ -38,7 +39,7 @@ zi_eight_regions_bf <-
   irrfrac ~ eight_regions,
   phi ~ eight_regions,
   zi ~ eight_regions,
-  family = zero_inflated_beta()
+  family = zero_inflated_beta(), data = aei
 )
 ```
 
@@ -343,8 +344,8 @@ print(zi_mod_1)
 ```{r}
 zi_mod_2_bf <-
   bf(
-    irrfrac ~ yearcount + log_pop_std + log_income_std + rugged_sc,
-    zi ~ area_km_std, 
+    irrfrac ~ yearcount + population + income + rugged,
+    zi ~ area_km, 
     family = zero_inflated_beta()
   )
 ```

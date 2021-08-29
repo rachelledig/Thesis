@@ -1,1 +1,37 @@
+```{r}
+num_groups <- 100
+trial <- 
+  aei_std %>% 
+  drop_na(years, rugged, precip, gdppc, popdens, dist, six_regions) %>% 
+  group_by((row_number()-1) %/% (n()/num_groups)) %>%
+  nest %>% 
+  pull(data)
+
+trialtrial <- trial[[1]]
+```
+
+```{r}
+options(future.globals.maxSize = 8000 * 1024^2)
+
+cl_zi_prior_spec_bf <-bf(
+  irrcrop ~ 0 + Intercept + years + rugged + precip + gdppc + popdens + dist + (1 + popdens + gdppc + years |six_regions))
+
+priors <- set_prior("normal(0,1)", class = "b") #slope parameters
+
+
+
+cl_zi_prior_spec <-
+  brm(
+    formula = cl_zi_prior_spec_bf,
+    family = zero_one_inflated_beta(),
+    prior = priors,
+    data = trialtrial, 
+    cores = 3,
+    seed = 17,
+    file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/brm_multiple_trial_1"
+  )
+
+``````{r}
+
+```
 

@@ -1,0 +1,404 @@
+```{r}
+usethis::use_blank_slate()
+
+iFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Grid_Data_Scripts/"
+oFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/"
+load(file=paste0(iFol,"data.RData"))
+load(file=paste0(iFol,"cftfrac.RData"))
+load(file=paste0(iFol,"countryData_67420.RData"))
+load(file=paste0(iFol,"pet_data.RData"))
+load(file=paste0(iFol,"landfrac_67420.RData"))
+source(file=paste0(iFol,"lpjmliotools_20201104.R"))
+
+#remove some stuff we wont use
+rm(mean_increase, discharge_landuse, evap_landuse, interc_landuse, runoff_landuse, total_PET_allcrops, transp_blue_landuse, transp_green_landuse)
+
+```
+
+```{r}
+library(dplyr)
+library(tidyverse)
+```
+
+```{r}
+#fix cellarea before we start
+cellarea <- (111194.9/2)*(111194.9/2)*cos(lat/180*pi) 
+landarea <- landfrac*cellarea #still in m2
+
+yearcount <- seq(1, 105, by = 1 )
+
+```
+
+## Total Country Area and Metadata
+
+```{r}
+
+cl_ha <- NULL
+cl_ha <- aggregateLPJmLdata2Country(input=landarea/10000 , #ha conversion
+                                    cowList = fullCountryData$ISO,
+                                    aggMethod = "sum")
+
+
+cl_ha <- as.data.frame(cl_ha)
+colnames(cl_ha) <- "country_area_ha"
+
+aei_country <- as.data.frame(cl_ha)
+aei_country$ISO <- row.names(aei_country)
+aei_country$ISO <- as.factor(aei_country$ISO)
+
+
+#add countrynames
+aei_country <- fullCountryData %>% 
+  select(ISO, Countryname) %>% 
+  unique() %>% 
+  right_join(., aei_country, by = "ISO")
+
+#some metadata for later analysis
+meta <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
+
+
+#fix the factors
+meta <- 
+  meta%>%
+  select(-name) %>% 
+    mutate_if(is.character,as.factor)
+
+
+aei_country <- left_join(
+  aei_country, 
+  meta, 
+  by = "ISO"
+)
+
+rm(cl_ha, meta)
+```
+
+## Cropland Area
+
+Goal: total cropland area for each country
+
+```{r}
+Cropland = apply(cftfrac[,1:32,],c(1,3),sum) #summing all the crop fractions per grid cell
+cropland_cl_ha <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=Cropland[,i]*cellarea, #multiplying by cell area
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "sum")
+  new_col <- new_col/10000 #m2 to ha conversion
+  cropland_cl_ha <- cbind(cropland_cl_ha, new_col)
+}
+colnames(cropland_cl_ha) <- yearcount
+cropland_cl_ha <- as.data.frame(cropland_cl_ha)
+cropland_cl_ha$ISO <- row.names(cropland_cl_ha)
+cropland_cl_ha$ISO <- as.factor(cropland_cl_ha$ISO)
+
+rm(Cropland)
+
+#pivot for tidy data
+cropland_cl_ha <- pivot_longer(
+  cropland_cl_ha, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "cropland_ha"
+)
+
+#merge to country area data
+aei_country <- left_join(
+  aei_country, 
+  cropland_cl_ha, 
+  by = "ISO"
+)
+
+aei_country$yearcount <- as.numeric(aei_country$yearcount)
+
+rm(cropland_cl_ha)
+```
+
+## Irrigation Fraction
+
+Irrigation Fraction for each country.
+
+```{r}
+irr_cl_ha <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=irrFrac[,i]*cellarea,
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "sum")
+  new_col <- new_col/10000 #m2 to ha conversion
+  irr_cl_ha <- cbind(irr_cl_ha, new_col)
+}
+colnames(irr_cl_ha) <- yearcount
+
+
+irr_cl_ha <- as.data.frame(irr_cl_ha)
+irr_cl_ha$ISO <- row.names(irr_cl_ha)
+irr_cl_ha$ISO <- as.factor(irr_cl_ha$ISO)
+
+#pivot for tidy data
+irr_cl_ha <- pivot_longer(
+  irr_cl_ha, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "irrigated_ha"
+)
+
+irr_cl_ha$yearcount <- as.numeric(irr_cl_ha$yearcount )
+
+#merge to big dataframe
+aei_country <- left_join(
+  aei_country, 
+  irr_cl_ha, 
+  by = c("ISO", "yearcount")
+)
+
+rm(irr_cl_ha)
+```
+
+## Creation of Irrigation Fraction on with two metrics
+
+```{r}
+aei_country <- aei_country %>% 
+  mutate(
+  if_total_area = irrigated_ha/country_area_ha, 
+  if_crop_area = irrigated_ha/cropland_ha
+)
+
+#fix the NaNs from dividing by 0 cropland area
+aei_country$if_crop_area[is.nan(aei_country$if_crop_area)]<-0
+```
+
+Removing countries with less than 5 cells, at the equator. These consist of mainly islands.
+
+```{r}
+
+counts <- 
+  fullCountryData %>% 
+  group_by(ISO, Countryname) %>% 
+  count() %>% 
+  subset(n <= 5) 
+
+aei_country <- aei_country %>% 
+  anti_join(., counts, by = "ISO")
+
+rm(counts)
+```
+
+## Population
+
+Using popdens
+
+```{r}
+poptot <- NULL
+popdens <- popdens[,-c(106:111)]
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=popdens[,i]*cellarea*0.000001,
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "sum")
+  poptot <- cbind(poptot, new_col)
+}
+colnames(poptot) <- yearcount
+
+
+poptot <- as.data.frame(poptot)
+poptot$ISO <- row.names(poptot)
+poptot$ISO <- as.factor(poptot$ISO)
+
+#pivot for tidy data
+poptot <- pivot_longer(
+  poptot, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "poptotal"
+)
+
+poptot$yearcount <- as.numeric(poptot$yearcount )
+
+#merge to big dataframe
+aei_country <- left_join(
+  aei_country, 
+  poptot, 
+  by = c("ISO", "yearcount")
+)
+
+rm(poptot)
+```
+
+## Income
+
+Using lpjgdppc
+
+```{r}
+income <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=lpjGDPpc[,i],
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "median")
+  income <- cbind(income, new_col)
+}
+colnames(income) <- yearcount
+
+
+income <- as.data.frame(income)
+income$ISO <- row.names(income)
+income$ISO <- as.factor(income$ISO)
+
+#pivot for tidy data
+income <- pivot_longer(
+  income, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "median_income"
+)
+
+income$yearcount <- as.numeric(income$yearcount )
+
+#merge to big dataframe
+aei_country <- left_join(
+  aei_country, 
+  income, 
+  by = c("ISO", "yearcount")
+)
+
+rm(income)
+```
+
+## PET
+
+```{r}
+PET = apply(total_PET[,1:12,],c(1,3),sum) #summing all PET per year
+pet_yr <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=PET[,i], #multiplying by cell area
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "median")
+  new_col <- new_col #m2 to ha conversion
+  pet_yr <- cbind(pet_yr, new_col)
+}
+colnames(pet_yr) <- yearcount
+pet_yr <- as.data.frame(pet_yr)
+pet_yr$ISO <- row.names(pet_yr)
+pet_yr$ISO <- as.factor(pet_yr$ISO)
+
+
+
+#pivot for tidy data
+pet_yr <- pivot_longer(
+  pet_yr, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "pet_med_yr"
+)
+
+pet_yr$yearcount <-as.numeric(pet_yr$yearcount)
+
+#merge to country area data
+aei_country <- left_join(
+  aei_country, 
+  pet_yr, 
+  by = c("ISO", "yearcount")
+)
+
+
+rm(pet_yr)
+
+```
+
+## Precipitation
+
+```{r}
+precip = apply(prec_landuse[,1:12,],c(1,3),sum) #summing all precip per year
+precip_yr <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=precip[,i], #multiplying by cell area
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "median")
+  new_col <- new_col #m2 to ha conversion
+  precip_yr <- cbind(precip_yr, new_col)
+}
+colnames(precip_yr) <- yearcount
+precip_yr <- as.data.frame(precip_yr)
+precip_yr$ISO <- row.names(precip_yr)
+precip_yr$ISO <- as.factor(precip_yr$ISO)
+
+
+
+#pivot for tidy data
+precip_yr <- pivot_longer(
+  precip_yr, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "precip_med_yr"
+)
+
+precip_yr$yearcount <-as.numeric(precip_yr$yearcount)
+
+#merge to country area data
+aei_country <- left_join(
+  aei_country, 
+  precip_yr, 
+  by = c("ISO", "yearcount")
+)
+
+
+rm(precip_yr)
+```
+
+## Humidity
+
+```{r}
+#humidity as precipitation divided by potential evaopotranspiration
+humidity = prec_landuse/total_PET
+
+precip_yr <- NULL
+for (i in yearcount){
+  new_col <- aggregateLPJmLdata2Country(input=precip[,i], #multiplying by cell area
+                                        cowList = fullCountryData$ISO,
+                                        aggMethod = "median")
+  new_col <- new_col #m2 to ha conversion
+  precip_yr <- cbind(precip_yr, new_col)
+}
+colnames(precip_yr) <- yearcount
+precip_yr <- as.data.frame(precip_yr)
+precip_yr$ISO <- row.names(precip_yr)
+precip_yr$ISO <- as.factor(precip_yr$ISO)
+
+
+
+#pivot for tidy data
+precip_yr <- pivot_longer(
+  precip_yr, 
+  -ISO,
+  names_to = "yearcount", 
+  values_to = "precip_med_yr"
+)
+
+precip_yr$yearcount <-as.numeric(precip_yr$yearcount)
+
+#merge to country area data
+aei_country <- left_join(
+  aei_country, 
+  precip_yr, 
+  by = c("ISO", "yearcount")
+)
+
+
+rm(precip_yr)
+```
+
+
+## Ruggedness
+
+Using data from @rileyTerrainRuggednessIndex1999 contained in the package `rethinking`
+
+```{r}
+library(rethinking)
+data("rugged")
+aei_country <- rugged %>% select(c("isocode", "rugged")) %>% 
+  rename(ISO = isocode) %>% 
+  left_join(aei_country, ., by = c("ISO"))
+
+rm(rugged)
+
+```
+
+## Polity

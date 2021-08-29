@@ -1,0 +1,73 @@
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(brms)
+```
+
+Following the steps laid out in Kurz longitudinal change
+
+```{r}
+aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_raw.csv")
+```
+
+```{r}
+by_country <-
+  aei %>%
+  group_by(Countryname) %>%
+  nest()
+```
+
+```{r}
+id_fits_time_zib <-
+  brm(data = by_country$data[[4]],
+      formula = irrcrop ~ 1 + yearcount,
+      family = zero_one_inflated_beta(),
+      control = list(adapt_delta = 0.95, 
+                     max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/Country_fits_pred_intercept_years.Rds")
+```
+
+
+```{r}
+id_fits_time_zib
+```
+
+```{r}
+job::job({
+  yearcount_fits <- 
+  by_country %>%
+  mutate(model = map(data, ~update(id_fits_time_zib, newdata = ., seed = 2)))
+})
+```
+
+```{r}
+
+bysomecountries <-
+  aei %>%
+  subset(Countryname == c("New_Zealand", "Iceland", "Belgium")) %>% 
+  group_by(Countryname) %>%
+  nest()
+
+
+blah <-
+  brm(data = bysomecountries$data[[1]],
+      formula = irrcrop ~ 1 + yearcount,
+      family = zero_one_inflated_beta(),
+      control = list(adapt_delta = 0.95, 
+                     max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      seed = 2)
+
+yearcount_fit <- 
+  bysomecountries %>%
+  mutate(model = map(data, ~update(blah, newdata = ., seed = 2)))
+
+
+```

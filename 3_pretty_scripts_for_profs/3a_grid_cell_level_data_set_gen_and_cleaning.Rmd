@@ -1,0 +1,403 @@
+---
+bibliography: "/Volumes/RachelExternal/Thesis/Thesis/references.bib"
+---
+
+Input data from Fabian and LPJML
+
+```{r}
+
+usethis::use_blank_slate()
+
+iFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Grid_Data_Scripts/"
+oFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/"
+load(file=paste0(iFol,"data.RData"))
+load(file=paste0(iFol,"cftfrac.RData"))
+load(file=paste0(iFol,"countryData_67420.RData"))
+load(file=paste0(iFol,"pet_data.RData"))
+load(file=paste0(iFol,"landfrac_67420.RData"))
+source(file=paste0(iFol,"lpjmliotools_20201104.R"))
+
+#remove some stuff we wont use
+rm(mean_increase, discharge_landuse, evap_landuse, interc_landuse, runoff_landuse, total_PET_allcrops, transp_blue_landuse, transp_green_landuse)
+```
+
+These datasets contain the following data. Not all predictors will be used.
+
+data.Rdata contains:
+
+-   distNextIrr [1:67420, 1:105]: distance (in km) for each gridcell to next irrigated cell at that time
+
+-   irrFrac: fraction (0..1) of cell that is irrigated lat/lon: latitude (-90..90)/longitude (-180..180) of each lpjml gridcell
+
+-   lpjGDPpc: GDP per capita (2011 US dollars/cap) for each lpj-grid
+
+-   mean_increase [1:67420, 1:105]: mean increase in productivity (delta gC/m2) in each gridcell across all crops
+
+-   median_increase [1:67420, 1:105]: median increase in productivity (delta gC/m2) in each gridcell across all crops
+
+-   popdens [1:67420, 1:111]: population density (cap/km2) starting 1901 to 2011
+
+-   globalIrrigArea: Mha discharge_landuse [1:67420, 1:12, 1:105]: (hm)3/d == (1.000.000 m3)/d
+
+-   prec_landuse [1:67420, 1:12, 1:105]: monthly precipitation (mm/month)
+
+-   runoff_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that is not consumed and is handed over to the next gridcell in the riverrouting (mm/month)
+
+-   transp_green_landuse [1:67420, 1:12, 1:105]: amount of green water (fed by precipitation) that is transpired by plants (mm/month)
+
+-   transp_blue_landuse [1:67420, 1:12, 1:105]: amount of blue water (fed by irrigation) that is transpired by plants (mm/month)
+
+-   evap_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that evaporates on bare soil (mm/month)
+
+-   interc_landuse [1:67420, 1:12, 1:105]: amount of water (fed by precipitation) that evaporates from plants leaves (is intercepted -- never reaches the ground) (mm/month)
+
+cftfrac.RData contains:
+
+-   cftfrac [1:67420, 1:32, 1:105]: fraction of gridcell cultivated with the given cft (crop functional type); cft 1-16 are the rainfed fractions, 17-32 the irrigated ones - the sum of which you have already in irrFrac
+
+1.  Temperate cereals (wheat, rye, barley; wheat)
+
+2.  Rice (paddy rice; rice)
+
+3.  Maize (maize for food; maize)
+
+4.  Tropical cereals (millet, sorghum; millet)
+
+5.  Pulses (pulses; field peas)
+
+6.  Temperate roots (sugar beet; sugar beet)
+
+7.  Tropical roots (cassava; cassava)
+
+8.  Sunflower (sunflower; sunflower)
+
+9.  Soybean (soybean; soybean)
+
+10. Groundnuts (groundnuts; groundnuts)
+
+11. Rapeseed (rapeseed; rapeseed)
+
+12. Sugarcane (sugarcane: sugarcane)
+
+13. others (potatoes, oil palm, citrus, date palm, grapes/vine, cotton, cocoa, coffee, other perennial crops, other annual crops; managed grassland)
+
+14. managed grasslands (pastures; managed grasslands)
+
+15. bio-energy grass
+
+16. bio-energy tree
+
+countryData_67420.RData contains:
+
+-   fullCountryData - data.frame, which contains for every grid cell the LPJmL country id (COW), the LPJmL regional code (REG) - both defined in "include/managepar.h", the more of less official english Countryname, and the international 3 character ISO code
+
+    example usage: `countryIrrfrac2005=aggregateLPJmLdata2Country(input=irrFrac[,105]*cellarea,cowList = fullCountryData ISO,aggMethod = "sum")`
+
+    `plotCountryData(data = countryIrrfrac2005/10^6,sty="log",cowList = fullCountryData$ISO,file = paste0(oFol,"countryIrrFrac2005.png"),title = "Country specific total irrigated area",legendtitle = "km2")`
+
+pet_data.RData contains
+
+-   total_PET [1:67420, 1:12, 1:105]: Monthly Potential Evapotranspiration (mm/month) for each gridcell and year under historic landuse
+
+-   total_PET_allcrops [1:67420, 1:12, 1:105]: Monthly Potential Evapotranspiration (mm/month) for each gridcell and year under synthetic allcrops conditions (not sure if this is at all helpful)
+
+```{r packages}
+library(tidyverse)
+library(dplyr)
+```
+
+```{r irrfrac}
+aei <- as.data.frame(irrFrac)
+rm(irrFrac)
+colnames(aei) <- seq(1901, 2005, by = 1)
+rownames(aei) <- seq(1, 67420, by =1)
+aei$id <- seq(1, 67420, by =1)
+
+meta <- as.data.frame(fullCountryData)
+rownames(meta) <- seq(1, 67420, by =1)
+meta$id <- seq(1, 67420, by =1)
+
+
+aei <- meta %>% 
+  select(Countryname, ISO, id) %>% 
+  right_join(., aei, by = "id")
+rm(meta)
+
+```
+
+Adding some extra meta data here for further analysis down the road.
+
+```{r extrameta}
+#some metadata for later analysis
+extrameta <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
+
+extrameta %>% 
+  select(ISO, name) %>% 
+  anti_join(aei, ., by = "ISO") %>% 
+  select(ISO, Countryname) %>% 
+  unique()
+#ok 44 countries wont have this extra metadata. majority are island nations, thats ok. I also will take them out later when I do a cut based on number of cells per country.
+
+
+aei <- 
+  extrameta %>%
+  select(-name, -Longitude, -Latitude) %>% 
+    mutate_if(is.character,as.factor) %>% 
+  right_join(., aei, by = "ISO")
+
+rm(extrameta)
+```
+
+Add cellarea, landfrac, cropland, latitude and longitude to this dataframe
+
+```{r landfrac}
+
+landfr <- as.data.frame(landfrac)
+#this is horozontal. rotate it. 
+landfr <- pivot_longer(landfr, everything())
+landfr$id <- seq(1, 67420, by =1)
+
+aei <- 
+  landfr %>%
+  select(-name) %>% 
+  rename(landfrac = value) %>% 
+  left_join(., aei, by = "id")
+
+```
+
+```{r cellarea}
+
+#fix cellarea before we start
+cellarea <- (111194.9/2)*(111194.9/2)*cos(lat/180*pi) 
+cellar <- as.data.frame(cellarea)
+cellar$id <- seq(1, 67420, by =1)
+
+aei <- 
+  cellar %>%
+  left_join(., aei, by = "id")
+
+aei$landarea <- aei$landfrac*aei$cellarea #still in m2
+```
+
+```{r latlon}
+#lat
+la <- as.data.frame(lat)
+la$id <- seq(1, 67420, by =1)
+
+aei <- 
+  la %>%
+  left_join(., aei, by = "id")
+
+#lon
+lo <- as.data.frame(lon)
+lo$id <- seq(1, 67420, by =1)
+
+aei <- 
+  lo %>%
+  left_join(., aei, by = "id")
+```
+
+```{r cleanup 1}
+#remove a bunch of junk
+rm(lat, lon, la, lo, cellar, cellarea, landfr, landfrac)
+```
+
+Now pivot longer to add additional time series data
+
+```{r dfpivot}
+
+aei <- aei %>% 
+  pivot_longer(`1901`:`2005`, names_to = "years", values_to = "irrfrac")
+```
+
+Add cropland, distance to next irrigated cell, population density, precip and PET. all need to be manipulated first and precip and PET need to be summed to yearly values.
+
+```{r cropland}
+cropland = apply(cftfrac[,1:32,],c(1,3),sum)
+cropland <- as.data.frame(cropland)
+colnames(cropland) <- seq(1901, 2005, by = 1)
+cropland$id <- seq(1, 67420, by=1)
+
+cropland <- cropland %>% 
+  pivot_longer(-id, names_to = "years", values_to = "cropland")
+
+aei <- aei %>% 
+  right_join(., cropland, by = c("years", "id"))
+
+rm(cropland)
+```
+
+```{r distnextirr}
+dist <- as.data.frame(distNextIrr)
+colnames(dist) <- seq(1901, 2005, by = 1)
+dist$id <- seq(1, 67420, by =1)  
+
+dist <- dist %>% 
+  pivot_longer(-id, names_to = "years", values_to = "dist")
+
+aei <- aei %>% 
+  right_join(., dist, by = c("years", "id"))
+
+rm(dist, distNextIrr)
+```
+
+```{r popdens}
+pop <- as.data.frame(popdens)
+colnames(pop) <- seq(1901, 2011, by = 1)
+pop$id <- seq(1, 67420, by =1)  
+
+pop <- pop %>% 
+  select(-c(`2006`:`2011`)) %>% 
+  pivot_longer(-id, names_to = "years", values_to = "popdens")
+
+aei <- aei %>% 
+  right_join(., pop, by = c("years", "id"))
+
+rm(pop, popdens)
+```
+
+```{r gdppc}
+gdppc <- as.data.frame(lpjGDPpc)
+colnames(gdppc) <- seq(1901, 2005, by = 1)
+gdppc$id <- seq(1, 67420, by =1)  
+
+gdppc <- gdppc %>% 
+  pivot_longer(-id, names_to = "years", values_to = "gdppc")
+
+aei <- aei %>% 
+  right_join(., gdppc, by = c("years", "id"))
+
+rm(gdppc, lpjGDPpc)
+```
+
+```{r precip}
+prec = apply(prec_landuse[,1:12,],c(1,3),sum) #sums values accross the monthly dimension
+prec <- as.data.frame(prec)
+colnames(prec) <- seq(1901, 2005, by = 1)
+prec$id <- seq(1, 67420, by =1)  
+
+prec <- prec %>% 
+  pivot_longer(-id, names_to = "years", values_to = "precip")
+
+aei <- aei %>% 
+  right_join(., prec, by = c("years", "id"))
+
+rm(prec, prec_landuse)
+
+```
+
+```{r pet}
+pet = apply(total_PET[,1:12,],c(1,3),sum) #sums values accross the monthly dimension
+pet <- as.data.frame(pet)
+colnames(pet) <- seq(1901, 2005, by = 1)
+pet$id <- seq(1, 67420, by =1)  
+
+pet <- pet %>% 
+  pivot_longer(-id, names_to = "years", values_to = "pet")
+
+aei <- aei %>% 
+  right_join(., pet, by = c("years", "id"))
+
+rm(pet, total_PET)
+```
+
+Turning year back numeric and adding a year count col. Removing data before 1960 as well. Limited data for several predictors exists prior to this.
+
+```{r}
+aei$years <- as.numeric(aei$years)
+aei$yearcount <- aei$years - 1960
+aei <- aei %>% 
+  subset(years >= 1960)
+```
+
+Now add additional predictors such as
+
+-   income,
+
+-   percentage of gdp that comes from agriculture,
+
+-   ruggedness
+
+-   others
+
+```{r ruggedness}
+library(rethinking)
+data("rugged")
+aei <- rugged %>% select(c("isocode", "rugged")) %>% 
+  rename(ISO = isocode) %>% 
+  left_join(aei, ., by = c("ISO"))
+
+rm(rugged)
+```
+
+```{r cerealyields}
+library(wbstats)
+aei <- wb_data("AG.YLD.CREL.KG", start_date = 1960, end_date = 2005) %>% 
+  select(iso3c, date, AG.YLD.CREL.KG) %>% 
+  rename(ISO = iso3c, years = date, crl_yld = AG.YLD.CREL.KG) %>% 
+  select(ISO, years, crl_yld) %>% 
+  left_join(aei, ., by = c("ISO", "years")) 
+```
+
+```{r perc_ag_gdp}
+aei <- wb_data("NV.AGR.TOTL.ZS", start_date = 1960, end_date = 2005) %>% 
+  select(iso3c, date, NV.AGR.TOTL.ZS) %>% 
+  rename(ISO = iso3c, years = date, ag_gdp = NV.AGR.TOTL.ZS) %>% 
+  select(ISO, years, ag_gdp) %>% 
+  left_join(aei, ., by = c("ISO", "years")) 
+```
+
+Democracy
+
+```{r democracy}
+aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Bjørnskov-Rode-Democracy-data.csv") %>% 
+  select(-c(6:19,21:22,24:51)) %>% 
+  rename(ISO = country.isocode, years = year) %>% 
+  select(ISO, years, DD.regime, DD.category, Colony, Communist) %>% 
+  left_join(aei, ., by = c("ISO", "years"))
+ 
+```
+
+Finally, remove countries that have 5 or less cells.
+
+```{r islandtchau!}
+counts <- 
+  fullCountryData %>% 
+  group_by(ISO) %>% 
+  count() %>% 
+  subset(n <= 5)  %>% 
+  select(ISO) %>% 
+  as.list()
+
+aei <- subset(aei, ISO != counts)
+```
+
+Variable transformation
+- Irrigation fraction as a proportion of cropland, not cell area
+- Humidity, precipitation divided by PET. Both are in the same units of mm/yr
+
+As many cell value for cropland are 0, and dividing by zero produced NaNs, all NaN values in irrcrop will be replaced with 0s. 
+
+```{r variable transformations}
+
+aei$irrcrop <- aei$irrfrac/aei$cropland
+aei$humid <- aei$precip/aei$pet
+
+aei$irrcrop[is.nan(aei$irrcrop)]<-0
+```
+
+
+Add one column to 
+
+
+
+Save the unstandardized data set.
+```{r savecsv}
+write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_raw.csv")
+```
+
+
+```{r summary}
+summary(aei)
+```
+

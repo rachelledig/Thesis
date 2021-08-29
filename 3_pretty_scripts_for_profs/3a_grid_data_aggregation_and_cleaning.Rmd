@@ -5,13 +5,20 @@ bibliography: "/Volumes/RachelExternal/Thesis/Thesis/references.bib"
 # Data Acquisition and Manipulation
 
 ```{r}
+
+usethis::use_blank_slate()
+
 iFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Grid_Data_Scripts/"
 oFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/"
 load(file=paste0(iFol,"data.RData"))
 load(file=paste0(iFol,"cftfrac.RData"))
 load(file=paste0(iFol,"countryData_67420.RData"))
 load(file=paste0(iFol,"pet_data.RData"))
+load(file=paste0(iFol,"landfrac_67420.RData"))
 source(file=paste0(iFol,"lpjmliotools_20201104.R"))
+
+#remove some stuff we wont use
+rm(mean_increase, discharge_landuse, evap_landuse, interc_landuse, runoff_landuse, total_PET_allcrops, transp_blue_landuse, transp_green_landuse, lpjGDPpc)
 ```
 
 ```{r}
@@ -112,6 +119,7 @@ Goal: Create an aggregated country level data set for the first analysis
 ```{r}
 #fix cellarea before we start
 cellarea <- (111194.9/2)*(111194.9/2)*cos(lat/180*pi) 
+landarea <- landfrac*cellarea #still in m2
 
 yearcount <- seq(60, 105, by = 5 )
 
@@ -122,7 +130,7 @@ yearcount <- seq(60, 105, by = 5 )
 ```{r}
 
 cl_ha <- NULL
-cl_ha <- aggregateLPJmLdata2Country(input=cellarea/10000 , #ha conversion
+cl_ha <- aggregateLPJmLdata2Country(input=landarea/10000 , #ha conversion
                                     cowList = fullCountryData$ISO,
                                     aggMethod = "sum")
 
@@ -157,6 +165,8 @@ aei <- left_join(
   meta, 
   by = "ISO"
 )
+
+rm(cl_ha, meta)
 ```
 
 ## Cropland Area
@@ -266,7 +276,7 @@ counts <-
 aei <- aei %>% 
   anti_join(., counts, by = "ISO")
 
-
+rm(counts)
 ```
 
 ## Total Population
@@ -315,15 +325,15 @@ aei <- wb_data("NY.GDP.PCAP.CD", start_date = 1900, end_date = 2005) %>%
 ## PET
 
 ```{r}
-job::job({median_PET <- apply(total_PET,c(1,3),median) })#take the median once
-job::job({median_pet <- NULL
-for (i in yearcount){
-  new_col <- aggregateLPJmLdata2Country(input=median_PET[,i], #take the median twice
-                                        cowList = fullCountryData$ISO,
-                                        aggMethod = "median") 
-  median_pet <- cbind(median_pet, new_col)})
-}
-colnames(median_pet) <- yearcount
+# job::job({median_PET <- apply(total_PET,c(1,3),median) })#take the median once
+# job::job({median_pet <- NULL
+# for (i in yearcount){
+#   new_col <- aggregateLPJmLdata2Country(input=median_PET[,i], #take the median twice
+#                                         cowList = fullCountryData$ISO,
+#                                         aggMethod = "median") 
+#   median_pet <- cbind(median_pet, new_col)})
+# }
+# colnames(median_pet) <- yearcount
 
 ```
 
@@ -346,7 +356,7 @@ aei <- rugged %>% select(c("isocode", "rugged")) %>%
   rename(ISO = isocode) %>% 
   left_join(aei, ., by = c("ISO"))
 
-
+rm(rugged)
 
 ```
 
@@ -355,18 +365,31 @@ aei <- rugged %>% select(c("isocode", "rugged")) %>%
 Using data from \@
 
 ```{r}
-#More political system data from center for systemic peace
-syspeace <-
-  read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Polity_center_for_systemic_peace.csv")
-syspeace$polity2[is.na(syspeace$polity2)] <- "X"
 
-#fixing the codes
+
+```
+
+```{r}
+remotes::install_github("xmarquez/democracyData")
+library(democracyData)
+
+regime <- as.data.frame(pacl)
+
 library(countrycode)
-aei <- syspeace %>% 
-  mutate(ISO = countrycode(ccode, origin = 'cown', destination = 'iso3c'),
+regime <- regime %>% 
+  select(year, cowcode2, pacl_country, regime) %>% 
+  mutate(ISO = countrycode(cowcode2, origin = 'cown', destination = 'iso3c'))
+
+aei3 <- regime %>% 
+  select(year, cowcode2, pacl_country, regime) %>% 
+  mutate(ISO = countrycode(cowcode2, origin = 'cown', destination = 'iso3c'),
          yearcount = year - 1900) %>% 
-   select(ISO, yearcount, polity, polity2) %>% 
+   select(ISO, yearcount, regime) %>% 
   left_join(aei, ., by = c("ISO", "yearcount"))
+
+
+issues3 <- aei3[is.na(aei3$regime),] 
+
 ```
 
 ### Restructuring the Cold War period
@@ -508,3 +531,12 @@ aei$polity_case <- as.factor(aei$polity_case)
 ```
 
 # Construction of the Grid Cell Dataset
+
+### Looking for Spatial Autocorellation
+
+```{r}
+install.packages('ape')
+library(ape)
+
+
+```
