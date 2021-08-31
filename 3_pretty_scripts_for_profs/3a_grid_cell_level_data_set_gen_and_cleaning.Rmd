@@ -354,7 +354,9 @@ aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Da
   select(-c(6:19,21:22,24:51)) %>% 
   rename(ISO = country.isocode, years = year) %>% 
   select(ISO, years, DD.regime, DD.category, Colony, Communist) %>% 
-  left_join(aei, ., by = c("ISO", "years"))
+  mutate(DD.regime = replace_na(DD.regime, 6)) %>% 
+  left_join(aei, ., by = c("ISO", "years")) 
+  
  
 ```
 
@@ -399,5 +401,41 @@ write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_raw.csv")
 
 ```{r summary}
 summary(aei)
+```
+
+
+
+# Standardization
+
+```{r}
+normalized<-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - min(x)) / (max(x) - min(x))
+  y[!is.na(y)]<-x
+  return(y)
+}
+
+centered <-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - mean(x)) / (sd(x)*2)
+  y[!is.na(y)]<-x
+  return(y)
+}
+```
+
+
+```{r}
+
+aei_std <-
+  aei %>% 
+  mutate(across(c(17:19, 21), centered)) %>% 
+  mutate(across(c(23), normalized)) %>% 
+  mutate(across(c(2,3,6,26), as.factor))
+
+
+summary(aei_std)
+
+write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_std.csv")
+
 ```
 

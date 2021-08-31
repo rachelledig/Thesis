@@ -1,5 +1,5 @@
 ## Rachel Ledig
-#Thesis - Bayesian Hierarchial Model of Irrigaton Expansion
+#Thesis - Bayesian Hierarchical Model of Irrigaton Expansion
 
 ## Script for PIK Cluster
 
@@ -10,6 +10,8 @@
 #Notes
 #Fix file paths
 #Force install packages?
+#saving outputs?
+#cores? 
 
 
 ####################################################################################
@@ -21,27 +23,27 @@
 
 ## Packages
 library(dplyr)
-library(tidyr)
-library(purrr)
 library(brms)
 
-## Plotting time series per country
+## Individual cell change model
 
 #load unstandardized data
-aei <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_raw.csv")
+aei_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_std.csv")
 
 #nest data
 by_country <-
-  aei %>%
+  aei_std %>%
   group_by(Countryname) %>%
   nest()
 
 #run first model based on time series
 id_fits_time_zib <-
   brm(data = by_country$data[[1]],
-      formula = irrcrop ~ 1 + yearcount,
+      formula = bf(irrcrop ~ 1 + yearcount,
+                   coi ~ 1 + yearcount,
+                   coi ~ 1 + yearcount),
       family = zero_one_inflated_beta(),
-      prior = 
+      prior = c(prior(normal(0, 100), class = b)), #use default priors except for slopes
       control = list(adapt_delta = 0.95, 
                      max_treedepth=11),
       cores = 2, 
@@ -62,17 +64,26 @@ saveRDS(yearcount_fits, "/Volumes/RachelExternal/Thesis/Data_and_Plots/Trial2.Rd
 ####################################################################################
 ####################################################################################
 
+
+####################################################################################
+####################################################################################
+####################################################################################
+
 # Simple Model 1- yearcount, country, ID
 
 ####################################################################################
 
 #Unconditional Means Model ID
+#aims to look at general effects across cells without time as a component
+
+#default priors are fine here
 
 uncond_means_id <-
   brm(data = aei_std,
-      formula = irrcrop ~ 1 + (1|id),
+      formula = bf(irrcrop ~ 1 + (1|id),
+                   coi ~ 1 + (1|id),
+                   zoi ~ 1 + (1|id)),
       family = zero_one_inflated_beta(),
-      prior = 
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -84,12 +95,15 @@ uncond_means_id <-
 ####################################################################################
 
 #Unconditional Growth Model ID
+#aims to look at general effects across cells and over time prior to adding other preds
 
 uncond_growth_id <-
   brm(data = aei_std,
-      formula = irrcrop ~ 1 + yearcount + (1 + yearcount|id),
+      formula = bf(irrcrop ~ 1 + yearcount + (1 + yearcount|id),
+                   coi ~ 1 + yearcount + (1 + yearcount|id),
+                   zoi ~ 1 + yearcount + (1 + yearcount|id)),
       family = zero_one_inflated_beta(),
-      prior = 
+      prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -105,9 +119,11 @@ uncond_growth_id <-
 
 full_simple_id <-
   brm(data = aei_std,
-      formula = irrcrop ~ 0 + Intercept + yearcount + ISO + ISO:yearcount (1 + yearcount|id),
+      formula = bf(irrcrop ~ 0 + Intercept + yearcount + ISO + ISO:yearcount (1 + yearcount|id),
+                   coi ~ 0 + Intercept + yearcount + ISO + ISO:yearcount (1 + yearcount|id),
+                   zoi ~ 0 + Intercept + yearcount + ISO + ISO:yearcount (1 + yearcount|id)),
       family = zero_one_inflated_beta(),
-      prior = 
+      prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -129,10 +145,11 @@ full_simple_id <-
 
 uncond_means_ISO <-
   brm(data = aei_std,
-      formula = irrcrop ~ 1 + (1|ISO),
+      formula = bf(irrcrop ~ 1 + (1|ISO),
+                   coi ~ 1 + (1|ISO),
+                   zoi ~ 1 + (1|ISO)),
       family = zero_one_inflated_beta(),
-      prior = 
-        control = list(adapt_delta = 0.95, 
+      control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
       iter = 1000, 
@@ -146,9 +163,11 @@ uncond_means_ISO <-
 
 uncond_growth_ISO <-
   brm(data = aei_std,
-      formula = irrcrop ~ 1 + yearcount + (1 + yearcount|ISO),
+      formula = bf(irrcrop ~ 1 + yearcount + (1 + yearcount|ISO),
+                   zoi ~ 1 + yearcount + (1 + yearcount|ISO),
+                   coi ~ 1 + yearcount + (1 + yearcount|ISO)),
       family = zero_one_inflated_beta(),
-      prior = 
+      prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -164,9 +183,11 @@ uncond_growth_ISO <-
 
 full_simple_ISO <-
   brm(data = aei_std,
-      formula = irrcrop ~ 0 + Intercept +  + six_regions + six_regions:yearcount (1 + yearcount|ISO),
+      formula = bf(irrcrop ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount (1 + yearcount|ISO)
+                   coi ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount (1 + yearcount|ISO),
+                   zoi ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount (1 + yearcount|ISO)),
       family = zero_one_inflated_beta(),
-      prior = 
+      prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -180,17 +201,35 @@ full_simple_ISO <-
 ####################################################################################
 ####################################################################################
 
+#create a list of data frames to run with brm_multiple
+
+num_groups <- 10
+folds <- 
+  aei_std %>% 
+  drop_na(years, rugged, precip, gdppc, popdens, dist, six_regions, pet, DD.regime) %>% 
+  group_by((row_number()-1) %/% (n()/num_groups)) %>%
+  nest %>% 
+  pull(data)
+
+
+####################################################################################
+####################################################################################
+####################################################################################
+
 # Complex model 
+# without interactions, at lower levels they are easier to sort out but here its too complex
 
 full_simple <-
-  brm(data = aei_std,
-      formula = irrcrop ~ 0 + Intercept +  + six_regions + six_regions:yearcount (1 + yearcount|ISO),
-      family = zero_one_inflated_beta(),
-      prior = 
-        control = list(adapt_delta = 0.95, 
+  brm_multiple(data = folds,
+               formula = bf(irrcrop ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id),
+                            coi ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id),
+                            zoi ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id)),
+               family = zero_one_inflated_beta(),
+               prior = c(prior(normal(0, 100), class = b)),
+               control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
-      cores = 2, 
-      iter = 1000, 
-      chains = 4,
-      seed = 2,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_full.Rds")
+               cores = 2, 
+               iter = 1000, 
+               chains = 4,
+               seed = 2,
+               file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/complex_full.Rds")
