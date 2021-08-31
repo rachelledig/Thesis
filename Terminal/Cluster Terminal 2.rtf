@@ -1,0 +1,2500 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2513
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Regular;\f1\fnil\fcharset0 Menlo-Bold;}
+{\colortbl;\red255\green255\blue255;\red255\green255\blue255;\red23\green23\blue23;\red185\green217\blue169;
+\red91\green205\blue255;\red66\green179\blue254;\red167\green197\blue151;}
+{\*\expandedcolortbl;;\csgenericrgb\c100000\c100000\c100000;\cssrgb\c11765\c11765\c11765\c85000;\cssrgb\c77186\c87270\c71793;
+\cssrgb\c41316\c84054\c100000;\cspthree\c43564\c74703\c97650;\cspthree\c72898\c80641\c67057;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+
+\f0\fs22 \cf2 \cb3 \CocoaLigature0 Last login: Tue Aug 31 13:42:56 on ttys003\
+rachelledig@Rachels-MBP ~ % ssh ledig@cluster.pik-potsdam.de                \
+Last login: Tue Aug 31 13:15:25 2021 from 95.91.246.202\
+\
+#########################################################################\
+#									#\
+#       Welcome to the High Performance Cluster @ PIK      		#\
+#       Please send comments/questions/errors to:          		#\
+#       cluster-support@pik-potsdam.de                     		#\
+#									#\
+#########################################################################\
+\
+CLUSTER STATUS	: From 16.06.2021 - SYSTEM IS IN PRODUCTION \
+\
+DOCUMENTATION	: http://www.pik-potsdam.de/services/it/hpc/\
+\
+LOGIN NODES	: Idle shell timeout set to 20 hours. Interactive CPU time limited to 2 hours.\
+BATCH QUEUES 	: 6624 CPU available for batch processing.  Use squeue, sinfo to see current details.\
+\
+FILESYSTEMS	: $PPROJECTS, $PTMP, $PSYSTEM, $HOME, $PROJECTS\
+$PPROJECTS    	: /p/projects/[project] - 40TB  default limit, 	local fs 	- project filesets, optimized for medium number of large files\
+$PTMP		: /p/tmp/[account]	- 20TB  default limit, 	local fs	- temporary data store for, i.e. intermediate results - no backup to tape!\
+$PSYSTEM	: /p/system/[...]	- admin-only,  		local fs	- cluster applications, modules and libraries\
+\
+$HOME		: /home/[account] 	- 250GB default limit, 	network fs	- user home filesystems, not suited for data intensive io operations\
+$PROJECTS    	: /data/[project]	- 500GB/2TB default/max network fs 	- standard project fs \
+\
+SOFTWARE	: USE COMMAND: module avail ON INTERACTIVE LOGIN NODES TO LIST ALL AVAILABLE MODULES.\
+LINUX 		: SLES 12.3 (64_x86) \
+INTEL COMPILER  : Intel Parallel Studio XE 2019 / Update 3\
+TOTALVIEW     	: Totalview 2017.1.21 \
+MATLAB 		: R2015b installed (on interactive login nodes use: module load matlab/R2015b; matlab)\
+\
+ATTENTION!	: New QOSs added: "priority" (small jobs) and "standby" (preemptable large jobs).\
+		  See "sacctmgr show qos" for limits. \
+		  Full documentation: https://www.pik-potsdam.de/services/it/hpc/user-guides/slurm\
+\
+PREVIOUS\
+MAINTENANCE	: 15.06.2021 Maintenance Cooling System\
+\
+#########################################################################\
+\
+\
+\
+\
+/usr/bin/manpath: can't set the locale; make sure $LC_* and $LANG are correct\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd thesis\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  rmodules\
+*** R 3.6.2 requires module load intel/2018.3 before this, make sure you have it!\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  R\
+\
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"\
+Copyright (C) 2019 The R Foundation for Statistical Computing\
+Platform: x86_64-pc-linux-gnu (64-bit)\
+\
+R is free software and comes with ABSOLUTELY NO WARRANTY.\
+You are welcome to redistribute it under certain conditions.\
+Type 'license()' or 'licence()' for distribution details.\
+\
+R is a collaborative project with many contributors.\
+Type 'contributors()' for more information and\
+'citation()' on how to cite R or R packages in publications.\
+\
+Type 'demo()' for some demos, 'help()' for on-line help, or\
+'help.start()' for an HTML browser interface to help.\
+Type 'q()' to quit R.\
+\
+> library(rstan)\
+Loading required package: StanHeaders\
+Loading required package: ggplot2\
+rstan (Version 2.21.2, GitRev: 2e1f913d3ca3)\
+For execution on a local, multicore CPU with excess RAM we recommend calling\
+options(mc.cores = parallel::detectCores()).\
+To avoid recompilation of unchanged Stan programs, we recommend calling\
+rstan_options(auto_write = TRUE)\
+> q()\
+Save workspace image? [y/n/c]: n\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  cp /p/projects/open/Fabian/R_compute_submit.sh .   \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  vim\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  vim \
+PIK_cluster_script.R  R_compute_submit.sh   aei_std.csv           \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  vim R_compute_submit.sh \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  vim R_compute_submit.sh \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  rmodules                   \
+*** R 3.6.2 requires module load intel/2018.3 before this, make sure you have it!\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  Rscript PIK_cluster_script.R \
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+Error in library(brms) : there is no package called 'brms'\
+Execution halted\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  exit\
+logout\
+Shared connection to cluster.pik-potsdam.de closed.\
+rachelledig@Rachels-MBP ~ % scp /Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/PIK_cluster_script.R ledig@cluster.pik-potsdam.de:thesis/\
+PIK_cluster_script.R                                      100% 9010   197.5KB/s   00:00    \
+rachelledig@Rachels-MBP ~ % ssh ledig@cluster.pik-potsdam.de \
+Last login: Tue Aug 31 13:44:18 2021 from 95.91.246.202\
+\
+#########################################################################\
+#									#\
+#       Welcome to the High Performance Cluster @ PIK      		#\
+#       Please send comments/questions/errors to:          		#\
+#       cluster-support@pik-potsdam.de                     		#\
+#									#\
+#########################################################################\
+\
+CLUSTER STATUS	: From 16.06.2021 - SYSTEM IS IN PRODUCTION \
+\
+DOCUMENTATION	: http://www.pik-potsdam.de/services/it/hpc/\
+\
+LOGIN NODES	: Idle shell timeout set to 20 hours. Interactive CPU time limited to 2 hours.\
+BATCH QUEUES 	: 6624 CPU available for batch processing.  Use squeue, sinfo to see current details.\
+\
+FILESYSTEMS	: $PPROJECTS, $PTMP, $PSYSTEM, $HOME, $PROJECTS\
+$PPROJECTS    	: /p/projects/[project] - 40TB  default limit, 	local fs 	- project filesets, optimized for medium number of large files\
+$PTMP		: /p/tmp/[account]	- 20TB  default limit, 	local fs	- temporary data store for, i.e. intermediate results - no backup to tape!\
+$PSYSTEM	: /p/system/[...]	- admin-only,  		local fs	- cluster applications, modules and libraries\
+\
+$HOME		: /home/[account] 	- 250GB default limit, 	network fs	- user home filesystems, not suited for data intensive io operations\
+$PROJECTS    	: /data/[project]	- 500GB/2TB default/max network fs 	- standard project fs \
+\
+SOFTWARE	: USE COMMAND: module avail ON INTERACTIVE LOGIN NODES TO LIST ALL AVAILABLE MODULES.\
+LINUX 		: SLES 12.3 (64_x86) \
+INTEL COMPILER  : Intel Parallel Studio XE 2019 / Update 3\
+TOTALVIEW     	: Totalview 2017.1.21 \
+MATLAB 		: R2015b installed (on interactive login nodes use: module load matlab/R2015b; matlab)\
+\
+ATTENTION!	: New QOSs added: "priority" (small jobs) and "standby" (preemptable large jobs).\
+		  See "sacctmgr show qos" for limits. \
+		  Full documentation: https://www.pik-potsdam.de/services/it/hpc/user-guides/slurm\
+\
+PREVIOUS\
+MAINTENANCE	: 15.06.2021 Maintenance Cooling System\
+\
+#########################################################################\
+\
+\
+\
+\
+/usr/bin/manpath: can't set the locale; make sure $LC_* and $LANG are correct\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd \
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd thesis/\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  rmodules\
+*** R 3.6.2 requires module load intel/2018.3 before this, make sure you have it!\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  Rscript PIK_cluster_script.R\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+Error in file(file, "rt") : cannot open the connection\
+Calls: read.csv -> read.table -> file\
+In addition: Warning message:\
+In file(file, "rt") :\
+  cannot open file '/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_std.csv': No such file or directory\
+Execution halted\
+
+\f1\b \cf4 ledig@login01
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  exit\
+logout\
+Shared connection to cluster.pik-potsdam.de closed.\
+rachelledig@Rachels-MBP ~ % scp /Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/PIK_cluster_script.R ledig@cluster.pik-potsdam.de:thesis/\
+PIK_cluster_script.R                                      100% 8983   194.7KB/s   00:00    \
+rachelledig@Rachels-MBP ~ % ssh ledig@cluster.pik-potsdam.de\
+Last login: Tue Aug 31 13:26:29 2021 from 95.91.246.202\
+\
+#########################################################################\
+#									#\
+#       Welcome to the High Performance Cluster @ PIK      		#\
+#       Please send comments/questions/errors to:          		#\
+#       cluster-support@pik-potsdam.de                     		#\
+#									#\
+#########################################################################\
+\
+CLUSTER STATUS	: From 16.06.2021 - SYSTEM IS IN PRODUCTION \
+\
+DOCUMENTATION	: http://www.pik-potsdam.de/services/it/hpc/\
+\
+LOGIN NODES	: Idle shell timeout set to 20 hours. Interactive CPU time limited to 2 hours.\
+BATCH QUEUES 	: 6624 CPU available for batch processing.  Use squeue, sinfo to see current details.\
+\
+FILESYSTEMS	: $PPROJECTS, $PTMP, $PSYSTEM, $HOME, $PROJECTS\
+$PPROJECTS    	: /p/projects/[project] - 40TB  default limit, 	local fs 	- project filesets, optimized for medium number of large files\
+$PTMP		: /p/tmp/[account]	- 20TB  default limit, 	local fs	- temporary data store for, i.e. intermediate results - no backup to tape!\
+$PSYSTEM	: /p/system/[...]	- admin-only,  		local fs	- cluster applications, modules and libraries\
+\
+$HOME		: /home/[account] 	- 250GB default limit, 	network fs	- user home filesystems, not suited for data intensive io operations\
+$PROJECTS    	: /data/[project]	- 500GB/2TB default/max network fs 	- standard project fs \
+\
+SOFTWARE	: USE COMMAND: module avail ON INTERACTIVE LOGIN NODES TO LIST ALL AVAILABLE MODULES.\
+LINUX 		: SLES 12.3 (64_x86) \
+INTEL COMPILER  : Intel Parallel Studio XE 2019 / Update 3\
+TOTALVIEW     	: Totalview 2017.1.21 \
+MATLAB 		: R2015b installed (on interactive login nodes use: module load matlab/R2015b; matlab)\
+\
+ATTENTION!	: New QOSs added: "priority" (small jobs) and "standby" (preemptable large jobs).\
+		  See "sacctmgr show qos" for limits. \
+		  Full documentation: https://www.pik-potsdam.de/services/it/hpc/user-guides/slurm\
+\
+PREVIOUS\
+MAINTENANCE	: 15.06.2021 Maintenance Cooling System\
+\
+#########################################################################\
+\
+\
+\
+\
+/usr/bin/manpath: can't set the locale; make sure $LC_* and $LANG are correct\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd thesis/\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  rmodules\
+*** R 3.6.2 requires module load intel/2018.3 before this, make sure you have it!\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  Rscript PIK_cluster_script.R\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+Error in nest(.) : could not find function "nest"\
+Calls: %>% ... eval -> _fseq -> freduce -> withVisible -> <Anonymous>\
+Execution halted\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  Rscript PIK_cluster_script.R\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+^C\
+Execution halted\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  sbatch      \
+PIK_cluster_script.R  R_compute_submit.sh   aei_std.csv           \
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  sbatch R_compute_submit.sh \
+Submitted batch job 20475627\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  squeue -u ledig\
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)\
+          20475627  priority zoib_the    ledig  R       0:20      8 cs-f14c01b[10-11],cs-f14c02b[01-06]\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  ll\
+total 913788\
+drwxrwxr-x 2 ledig users      4096 Aug 31 14:28 
+\f1\b \cf5 .
+\f0\b0 \cf2 /\
+drwx------ 4 ledig users      4096 Aug 31 14:13 
+\f1\b \cf5 ..
+\f0\b0 \cf2 /\
+-rw-r--r-- 1 ledig users      8998 Aug 31 14:26 PIK_cluster_script.R\
+-rw-rw-r-- 1 ledig users       648 Aug 31 14:13 R_compute_submit.sh\
+-rw-r--r-- 1 ledig users 931983446 Aug 31 14:02 aei_std.csv\
+-rw-rw-r-- 1 ledig users     28361 Aug 31 14:29 outfile.20475627.err\
+-rw-rw-r-- 1 ledig users         0 Aug 31 14:28 outfile.20475627.out\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  cat outfile.20475627.err\
+/var/spool/slurmd/job20475627/slurm_script: line 18: rmodules: command not found\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+slurmstepd: error: Can't propagate RLIMIT_NPROC of 254764 from submit host: Operation not permitted\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+\
+Attaching package: 'dplyr'\
+\
+The following objects are masked from 'package:stats':\
+\
+    filter, lag\
+\
+The following objects are masked from 'package:base':\
+\
+    intersect, setdiff, setequal, union\
+\
+Error in brm(data = by_country$data[[1]], formula = bf(irrcrop ~ 1 + yearcount,  : \
+  could not find function "brm"\
+Execution halted\
+Error in brm(data = by_country$data[[1]], formula = bf(irrcrop ~ 1 + yearcount,  : \
+  could not find function "brm"\
+Execution halted\
+Error in brm(data = by_country$data[[1]], formula = bf(irrcrop ~ 1 + yearcount,  : \
+  could not find function "brm"\
+Execution halted\
+Error in brm(data = by_country$data[[1]], formula = bf(irrcrop ~ 1 + yearcount,  : \
+  could not find function "brm"\
+Execution halted\
+Error in brm(data = by_country$data[[1]], formula = bf(irrcrop ~ 1 + yearcount,  : \
+  could not find function "brm"\
+Execution halted\
+srun: error: cs-f14c02b01: tasks 33,35,38,45-46: Exited with exit code 1\
+srun: Terminating job step 20475627.0\
+slurmstepd: error: *** STEP 20475627.0 ON cs-f14c01b10 CANCELLED AT 2021-08-31T14:29:52 ***\
+srun: error: cs-f14c02b01: tasks 32,34,36-37,39-44,47: Terminated\
+srun: error: cs-f14c01b10: tasks 0-15: Terminated\
+srun: error: cs-f14c01b11: tasks 16-31: Terminated\
+srun: error: cs-f14c02b04: tasks 80-95: Terminated\
+srun: error: cs-f14c02b02: tasks 48-63: Terminated\
+srun: error: cs-f14c02b03: tasks 64-79: Terminated\
+srun: error: cs-f14c02b05: tasks 96-111: Terminated\
+srun: error: cs-f14c02b06: tasks 112-127: Terminated\
+srun: Force Terminated job step 20475627.0\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  R \
+\
+R version 3.6.2 (2019-12-12) -- "Dark and Stormy Night"\
+Copyright (C) 2019 The R Foundation for Statistical Computing\
+Platform: x86_64-pc-linux-gnu (64-bit)\
+\
+R is free software and comes with ABSOLUTELY NO WARRANTY.\
+You are welcome to redistribute it under certain conditions.\
+Type 'license()' or 'licence()' for distribution details.\
+\
+R is a collaborative project with many contributors.\
+Type 'contributors()' for more information and\
+'citation()' on how to cite R or R packages in publications.\
+\
+Type 'demo()' for some demos, 'help()' for on-line help, or\
+'help.start()' for an HTML browser interface to help.\
+Type 'q()' to quit R.\
+\
+> library(purrr)\
+> install.packages("brms")\
+Installing package into '/p/projects/lpjml/R.3.6.2_test/library'\
+(as 'lib' is unspecified)\
+Warning in install.packages("brms") :\
+  'lib = "/p/projects/lpjml/R.3.6.2_test/library"' is not writable\
+Would you like to use a personal library instead? (yes/No/cancel) cancel\
+Error in install.packages("brms") : unable to install packages\
+> q()\
+Save workspace image? [y/n/c]: n\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~/thesis $
+\f0\b0 \cf2  cd /p/projects/lpjml/R.3.6.2_test\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/lpjml/R.3.6.2_test $
+\f0\b0 \cf2  ll\
+total 707\
+drwxrwsrwx   4 stenzel lpjml   4096 Feb  9  2021 \cf6 \cb7 .\cf2 \cb3 /\
+drwxrwsr-x  17 gerten  lpjml   4096 May 18 14:46 
+\f1\b \cf5 ..
+\f0\b0 \cf2 /\
+-rwxrwxrwx   1 stenzel lpjml  73683 Feb  9  2021 
+\f1\b \cf4 HapEstXXR_0.1-8.tar.gz
+\f0\b0 \cf2 *\
+-rwxrwxrwx   1 stenzel lpjml 543374 Feb  9  2021 
+\f1\b \cf4 LPJmLmdi_1.31.tar.gz
+\f0\b0 \cf2 *\
+drwxrwsrwx 364 stenzel lpjml  32768 Aug 31 13:37 \cf6 \cb7 library\cf2 \cb3 /\
+drwxrwsrwx   4 stenzel lpjml   4096 Feb  9  2021 \cf6 \cb7 pandoc-2.9.2\cf2 \cb3 /\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/lpjml/R.3.6.2_test $
+\f0\b0 \cf2  cd library\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/lpjml/R.3.6.2_test/library $
+\f0\b0 \cf2  ll\
+total 427\
+drwxrwsrwx 364 stenzel lpjml 32768 Aug 31 13:37 \cf6 \cb7 .\cf2 \cb3 /\
+drwxrwsrwx   4 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ..\cf2 \cb3 /\
+drwxrwxrwx   6 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 BH\cf2 \cb3 /\
+drwxrwxrwx  11 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 BayesFactor\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 Brobdingnag\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 DBI\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 DEoptimR\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 DT\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 Deriv\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 FNN\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 Formula\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 GlobalOptions\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 HapEstXXR\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 Hmisc\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 Kendall\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 LPJmLmdi\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 LandMark\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 Lmoments\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 MASS\cf2 \cb3 /\
+drwxrwsrwx  12 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 Matrix\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 MatrixModels\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ModelDataComp\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 NMF\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 PCICt\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 PIKTools\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 R.methodsS3\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 R.oo\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 R.utils\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 R6\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RColorBrewer\cf2 \cb3 /\
+drwxrwsrwx  14 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RCurl\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RNetCDF\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 RSQLite\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RUnit\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RandomFields\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RandomFieldsUtils\cf2 \cb3 /\
+drwxrwxrwx  16 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 Rcpp\cf2 \cb3 /\
+drwxrwxrwx  13 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 RcppArmadillo\cf2 \cb3 /\
+drwxrwxrwx  12 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 RcppEigen\cf2 \cb3 /\
+drwxrwxrwx  12 stenzel lpjml  4096 Feb 11  2021 \cf6 \cb7 RcppGSL\cf2 \cb3 /\
+drwxrwsrwx  13 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 RcppParallel\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 SDMTools\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 SparseM\cf2 \cb3 /\
+drwxrwxrwx  10 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 StanHeaders\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 TTR\cf2 \cb3 /\
+drwxrwxrwx  10 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 V8\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 XML\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 abind\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 acepack\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 aplpack\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 arm\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 askpass\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 assertthat\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 automap\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 aws.s3\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 aws.signature\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 backports\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 base64enc\cf2 \cb3 /\
+drwxrwxrwx  10 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 bayesm\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bayesplot\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 bcp\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bfast\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bibtex\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bindr\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 bindrcpp\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bit\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bit64\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 bitops\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 blob\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 brew\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 bridgesampling\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 broom\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 caTools\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 callr\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 car\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 carData\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 cellranger\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 checkmate\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 chron\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 circlize\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 classInt\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 cleangeo\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 cli\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 clipr\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 clisymbols\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 coda\cf2 \cb3 /\
+drwxrwsrwx  13 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 colorspace\cf2 \cb3 /\
+drwxrwsrwx  14 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 colourpicker\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 commonmark\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 compositions\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 contfrac\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 covr\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 cpp11\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 crayon\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 crosstalk\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 crul\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 curl\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 data.table\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 deSolve\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 deldir\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 desc\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 devtools\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 dichromat\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 digest\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 distillery\cf2 \cb3 /\
+drwxrwxrwx   6 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 distributional\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 doBy\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 doMPI\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 doParallel\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 dotCall64\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 dplyr\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 dygraphs\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 e1071\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 effects\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 elliptic\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 energy\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 estimability\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 evaluate\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 evd\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 extRemes\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fBasics\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fExtremes\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fGarch\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fTrading\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fansi\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fastICA\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fastmap\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fields\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 filehash\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 forcats\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 foreach\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb 11  2021 \cf6 \cb7 forecast\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 formatR\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 fracdiff\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 fs\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 future\cf2 \cb3 /\
+drwxrwxrwx   6 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 gamm4\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gdata\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 generics\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 geoR\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 geosphere\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ggplot2\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ggridges\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ggtern\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gh\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 git2r\cf2 \cb3 /\
+drwxrwxrwx   6 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 globals\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 glue\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 goftest\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gplots\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 grImport\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 greenbrown\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gridBase\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gridExtra\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gss\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gstat\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gsw\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gtable\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 gtools\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 haven\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 highr\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 hms\cf2 \cb3 /\
+drwxrwsrwx  12 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 htmlTable\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 htmltools\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 htmlwidgets\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 httpcode\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 httpuv\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 httr\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 hydroGOF\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 hydroTSM\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 hydrostats\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 hypergeo\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 igraph\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ineq\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ini\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 inline\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 insol\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 intervals\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 irlba\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ismev\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 iterators\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 itertools\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 jomo\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 jpeg\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 jsonlite\cf2 \cb3 /\
+drwxrwsrwx  14 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 knitr\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 labeling\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 later\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 latex2exp\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lattice\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 latticeExtra\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lazyeval\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 leaps\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 lhs\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 lifecycle\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 listenv\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lme4\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lmtest\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 loo\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lpSolve\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lpSolveAPI\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 lpjmliotools\cf2 \cb3 /\
+drwxrwxrwx  10 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 lubridate\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb 11  2021 \cf6 \cb7 lwgeom\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 magclass\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 magrittr\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mapproj\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 maps\cf2 \cb3 /\
+drwxrwsrwx  12 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 maptools\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 markdown\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 matrixStats\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 matrixcalc\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 memoise\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mgcv\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mi\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 mice\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mime\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 miniUI\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 minqa\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mitml\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mitools\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 munsell\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 mvtnorm\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ncdf4\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 nleqslv\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 nlme\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 nloptr\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 nnet\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 nortest\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 numDeriv\cf2 \cb3 /\
+drwxrwsrwx  12 stenzel lpjml  4096 Feb 11  2021 \cf6 \cb7 oce\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 openssl\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 openxlsx\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 optimx\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ordinal\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 outliers\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 packrat\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pan\cf2 \cb3 /\
+drwxrwxrwx  11 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 pander\cf2 \cb3 /\
+drwxrwxrwx   6 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 parallelly\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pbapply\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pbkrtest\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 phenopix\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 pillar\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pkgbuild\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pkgconfig\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pkgload\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pkgmaker\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 plogr\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 plotrix\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 plyr\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 png\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 polyclip\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 polynom\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 pracma\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 praise\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 prettyunits\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 processx\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 profvis\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 progress\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 projpred\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 promises\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 proto\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ps\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 purrr\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 quadprog\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 qualV\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 quantmod\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 quantreg\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 randomForest\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 raster\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rcmdcheck\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 readr\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 readstata13\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 readxl\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 registry\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 relimp\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rematch\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 remotes\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 reshape\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 reshape2\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rex\cf2 \cb3 /\
+drwxrwsrwx  14 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rgdal\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rgenoud\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rgeos\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rio\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rjson\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 rlang\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rmarkdown\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rngtools\cf2 \cb3 /\
+drwxrwsrwx  14 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 robustbase\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 roxygen2\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rprojroot\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rsconnect\cf2 \cb3 /\
+drwxrwxrwx  12 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 rstan\cf2 \cb3 /\
+drwxrwxrwx   8 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 rstantools\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rstudioapi\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 rversions\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sandwich\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 scales\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 scatterplot3d\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sem\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sessioninfo\cf2 \cb3 /\
+drwxrwsrwx  19 stenzel lpjml  4096 Feb 12  2021 \cf6 \cb7 sf\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 shape\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 shiny\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 shinyjs\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 shinystan\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 shinythemes\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sirad\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 soiltexture\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sourcetools\cf2 \cb3 /\
+drwxrwxrwx  12 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 sp\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spData\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spacetime\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spam\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spatstat\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spatstat.data\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 spatstat.utils\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 splancs\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 stabledist\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 stringdist\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 stringi\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 stringr\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 strucchange\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 survey\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 survival\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 svd\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 sys\cf2 \cb3 /\
+drwxrwsrwx   9 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tcltk2\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tensor\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tensorA\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 testthat\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 threejs\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Aug 31 13:35 \cf6 \cb7 tibble\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 tidyr\cf2 \cb3 /\
+drwxrwxrwx   7 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 tidyselect\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tikzDevice\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 timeDate\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 timeSeries\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tinytex\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 triebeard\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 tseries\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 ucminf\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 udunits2\cf2 \cb3 /\
+drwxrwsrwx  11 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 urca\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 urltools\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 uroot\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 usethis\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 utf8\cf2 \cb3 /\
+drwxrwxrwx   9 stenzel lpjml  4096 Aug 31 13:34 \cf6 \cb7 vctrs\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 viridis\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 viridisLite\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 weights\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 whisker\cf2 \cb3 /\
+drwxrwsrwx   7 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 xfun\cf2 \cb3 /\
+drwxrwxrwx  10 stenzel lpjml  4096 Feb 10  2021 \cf6 \cb7 xml2\cf2 \cb3 /\
+drwxrwsrwx   6 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 xopen\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 xtable\cf2 \cb3 /\
+drwxrwsrwx  13 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 xts\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 yaml\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 yarrr\cf2 \cb3 /\
+drwxrwsrwx   8 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 zip\cf2 \cb3 /\
+drwxrwsrwx  10 stenzel lpjml  4096 Feb  9  2021 \cf6 \cb7 zoo\cf2 \cb3 /\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/lpjml/R.3.6.2_test/library $
+\f0\b0 \cf2  cd\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  chmod 777 thesis \
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  chmod -R 777 thesis\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  mkdir /p/projects/open/ledig\
+mkdir: cannot create directory '/p/projects/open/ledig': File exists\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cp -R thesis /p/projects/open/ledig/\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  cd /p/projects/open/\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/open $
+\f0\b0 \cf2  ll\
+total 31114\
+drwxrwsr-x  42 root     open     4096 Aug  4 11:51 
+\f1\b \cf5 .
+\f0\b0 \cf2 /\
+drwxrwxr-x 115 root     root   262144 Aug 31 05:40 
+\f1\b \cf5 ..
+\f0\b0 \cf2 /\
+-rw-r--r--   1 root     open 31027021 Jul 30  2019 .1MB_files_not_used_for_one_year\
+dr-xr-xr-x   2 root     root    32768 Aug 31 05:40 
+\f1\b \cf5 .snapshots
+\f0\b0 \cf2 /\
+drwxrwsr-x  14 tobian   open     4096 Jul 15 19:08 
+\f1\b \cf5 Arne
+\f0\b0 \cf2 /\
+drwxrwsr-x  10 cowerner open     4096 Aug 18 12:36 
+\f1\b \cf5 Constanze
+\f0\b0 \cf2 /\
+drwxrwsr-x  11     3458 open     4096 Jul 19  2016 
+\f1\b \cf5 Cordula
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 sibylls  open     4096 Jun 18  2015 
+\f1\b \cf5 DATA
+\f0\b0 \cf2 /\
+drwxr-sr-x   2 gerten   open     4096 Aug 29  2014 
+\f1\b \cf5 Dieter
+\f0\b0 \cf2 /\
+drwxr-sr-x  27 stenzel  open     4096 Aug 31 13:47 
+\f1\b \cf5 Fabian
+\f0\b0 \cf2 /\
+drwxrwsr-x   5 stenzel  open     4096 Oct 13  2017 
+\f1\b \cf5 Farina
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 fetzer   open     4096 Sep  8  2020 
+\f1\b \cf5 Ingo
+\f0\b0 \cf2 /\
+drwxr-sr-x   8 jannesbr open     4096 Aug 20 15:35 
+\f1\b \cf5 Jannes
+\f0\b0 \cf2 /\
+drwxr-sr-x  17 heinke   open     4096 Aug 12 16:24 
+\f1\b \cf5 Jens
+\f0\b0 \cf2 /\
+drwxrwsr-x   9 stenzel  open    32768 May  7 20:46 
+\f1\b \cf5 Johanna
+\f0\b0 \cf2 /\
+drwxr-sr-x  12 jonasjae open     4096 May  3  2020 
+\f1\b \cf5 Jonas
+\f0\b0 \cf2 /\
+drwxr-sr-x   4     3098 open     4096 May  8  2014 
+\f1\b \cf5 Juliane
+\f0\b0 \cf2 /\
+drwxr-sr-x   8 knyasulu open     4096 Jul 15 12:08 
+\f1\b \cf5 Kruger
+\f0\b0 \cf2 /\
+drwxr-sr-x   8 sibylls  open     4096 Nov 22  2017 
+\f1\b \cf5 LPJmL4
+\f0\b0 \cf2 /\
+drwxr-sr-x  18 ostberg  open     4096 Jul  9  2020 
+\f1\b \cf5 LanduseData
+\f0\b0 \cf2 /\
+drwxr-sr-x   4     2129 open    32768 Apr 30  2020 
+\f1\b \cf5 Lena
+\f0\b0 \cf2 /\
+drwxr-sr-x   2 billing  open     4096 Dec  2  2015 
+\f1\b \cf5 Maik
+\f0\b0 \cf2 /\
+drwxrwsr-x   4     2467 open     4096 Feb 12  2014 
+\f1\b \cf5 Markus
+\f0\b0 \cf2 /\
+drwxrwsr-x   2 ostberg  open     4096 Jun  9  2020 
+\f1\b \cf5 Markus_Backup_ISIMIP
+\f0\b0 \cf2 /\
+drwxrwsr-x   3 vmaanen  open     4096 Oct 22  2018 
+\f1\b \cf5 Nicole
+\f0\b0 \cf2 /\
+drwxrwsr-x   4 ostberg  open     4096 Aug 29  2018 
+\f1\b \cf5 R
+\f0\b0 \cf2 /\
+drwxr-sr-x   5 stenzel  open     4096 Jul  2  2020 
+\f1\b \cf5 Sarah
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 ostberg  open     4096 Jul  5  2019 
+\f1\b \cf5 Sebastian
+\f0\b0 \cf2 /\
+drwxr-sr-x   2 sowagner open     4096 Dec 21  2020 
+\f1\b \cf5 Sophie
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 beringer open     4096 Nov 26  2020 
+\f1\b \cf5 Tim
+\f0\b0 \cf2 /\
+drwxrwsr-x  16 veraheck open    32768 Jan 31  2021 
+\f1\b \cf5 Vera
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 yvonnebr open     4096 Feb 10  2020 
+\f1\b \cf5 Yvonne
+\f0\b0 \cf2 /\
+drwxr-sr-x   4 apastor  open     4096 Aug  5  2020 
+\f1\b \cf5 apastor
+\f0\b0 \cf2 /\
+drwxr-sr-x   2 davidarm open     4096 Sep 14  2018 
+\f1\b \cf5 davidarm
+\f0\b0 \cf2 /\
+-rw-rw-r--   1 ostberg  open        0 Jun  8  2020 dsmj.log\
+-rw-rw-r--   1 ostberg  open      919 Aug  1  2017 du_20170801.txt\
+-rw-r--r--   1 stenzel  open      488 May  6  2020 du_20200427.txt\
+-rw-r--r--   1 stenzel  open      606 May  6  2020 du_20200506.txt\
+-rw-r--r--   1 stenzel  open      553 Aug 13  2020 du_20200813.txt\
+-rw-r--r--   1 stenzel  open      553 Aug 19  2020 du_20200819.txt\
+-rw-r--r--   1 stenzel  open      688 Apr 14 13:38 du_20210414.txt\
+-rw-r--r--   1 stenzel  open      640 May 12 16:30 du_20210512.txt\
+-rw-r--r--   1 stenzel  open      640 May 12 16:31 du_20210513.txt\
+-rw-rw-r--   1 stenzel  open      689 Aug  4 11:51 du_20210804.txt\
+drwxr-sr-x  13 heinke   open     4096 Jan 13  2021 
+\f1\b \cf5 heinke
+\f0\b0 \cf2 /\
+drwxrwsr-x   2 sibylls  open    32768 Jun 29  2020 
+\f1\b \cf5 input_VERSION2
+\f0\b0 \cf2 /\
+drwxr-sr-x   3     3433 open     4096 Apr 27  2016 
+\f1\b \cf5 justus
+\f0\b0 \cf2 /\
+drwxr-sr-x   6 seaby    open     4096 Oct 27  2020 
+\f1\b \cf5 lauren
+\f0\b0 \cf2 /\
+drwxr-sr-x   3 ledig    open     4096 Aug 31 14:41 
+\f1\b \cf5 ledig
+\f0\b0 \cf2 /\
+drwxr-sr-x  15     2027 open     4096 Oct 28  2015 
+\f1\b \cf5 mfader
+\f0\b0 \cf2 /\
+drwxr-sr-x  74 sibylls  open     4096 Aug 19 14:12 
+\f1\b \cf5 sibyll
+\f0\b0 \cf2 /\
+drwxrwsr--   2 stenzel  open     4096 Aug 26 14:05 
+\f1\b \cf5 talks
+\f0\b0 \cf2 /\
+drwxr-sr-x   8     2936 open     4096 Oct 14  2013 
+\f1\b \cf5 thylmann
+\f0\b0 \cf2 /\
+drwxr-sr-x   8 yvonnebr open     4096 Apr 26  2018 
+\f1\b \cf5 yvonnebr
+\f0\b0 \cf2 /\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/open $
+\f0\b0 \cf2  cd ledig/\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/open/ledig $
+\f0\b0 \cf2  ll\
+total 3\
+drwxr-sr-x  3 ledig open 4096 Aug 31 14:41 
+\f1\b \cf5 .
+\f0\b0 \cf2 /\
+drwxrwsr-x 42 root  open 4096 Aug  4 11:51 
+\f1\b \cf5 ..
+\f0\b0 \cf2 /\
+drwxrwsr-x  2 ledig open 4096 Aug 31 14:41 
+\f1\b \cf5 thesis
+\f0\b0 \cf2 /\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/open/ledig $
+\f0\b0 \cf2  cd\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  vim .bashrc \
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  source\
+-bash: source: filename argument required\
+source: usage: source filename [arguments]\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  source .bashrc\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 ~ $
+\f0\b0 \cf2  phome\
+
+\f1\b \cf4 ledig@login02
+\f0\b0 \cf2  
+\f1\b \cf5 /p/projects/open/ledig $
+\f0\b0 \cf2  \
+}
