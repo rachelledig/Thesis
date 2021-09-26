@@ -360,19 +360,6 @@ aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Da
  
 ```
 
-Finally, remove countries that have 5 or less cells.
-
-```{r islandtchau!}
-counts <- 
-  fullCountryData %>% 
-  group_by(ISO) %>% 
-  count() %>% 
-  subset(n <= 5)  %>% 
-  select(ISO) %>% 
-  as.list()
-
-aei <- subset(aei, ISO != counts)
-```
 
 Variable transformation
 - Irrigation fraction as a proportion of cropland, not cell area
@@ -389,20 +376,49 @@ aei$irrcrop[is.nan(aei$irrcrop)]<-0
 ```
 
 
-Add one column to 
 
-
-
-Save the unstandardized data set.
-```{r savecsv}
-write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_raw.csv")
-```
-
-
-```{r summary}
+```{r}
 summary(aei)
+
+write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_full.csv")
 ```
 
+
+Finally, remove countries that have 5 or less cells.
+
+```{r islandtchau!}
+counts <- 
+  fullCountryData %>% 
+  group_by(ISO) %>% 
+  count() %>% 
+  subset(n <= 5)  %>% 
+  select(ISO) 
+
+counts <- as.character(counts$ISO)
+
+#for fun
+`%notin%` <- Negate(`%in%`)
+
+aei_clean <- subset(aei, ISO %notin% counts)
+
+summary(aei_clean)
+
+write_csv(aei_clean, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_clean.csv")
+```
+
+
+
+
+# 5 year time steps
+
+
+```{r}
+aei_small <- aei_clean %>% 
+  subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+
+write_csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+```
+  
 
 
 # Standardization
@@ -426,16 +442,16 @@ centered <-function(y) {
 
 ```{r}
 
-aei_std <-
-  aei %>% 
-  mutate(across(c(17:19, 21), centered)) %>% 
+aei_small_std <-
+  aei_small %>% 
+  mutate(across(c(17:21,24,25, 31), centered)) %>% 
   mutate(across(c(23), normalized)) %>% 
   mutate(across(c(2,3,6,26), as.factor))
 
 
-summary(aei_std)
+summary(aei_small_std)
 
-write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_std.csv")
+write.csv(aei_small_std, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
 
 ```
 

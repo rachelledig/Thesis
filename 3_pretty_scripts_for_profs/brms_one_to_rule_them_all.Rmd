@@ -1,0 +1,294 @@
+
+
+Packages
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(brms)
+library(purrr)
+library(ggplot2)
+library(GGally)
+```
+
+
+Data
+
+```{r load_data}
+aei_small <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+aei_small_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
+#aei_std <- read.csv("/p/projects/open/ledig/thesis/aei_std.csv")
+
+summary(aei_small_std)
+```
+
+# irrfrac data
+
+```{r}
+ggplot(data = aei_small_std, aes(irrfrac)) + geom_histogram(bins = 100)
+```
+
+```{r}
+pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_small) # Smoothed regression lines
+```
+
+
+```{r}
+pairs(~irrfrac + precip + humid + pet,data=aei_small) 
+```
+
+```{r}
+pairs(~irrfrac + dist + DD.regime,data=aei_small) 
+```
+
+
+# Individual cell change model
+
+run first model based on time series
+
+```{r}
+# nest data
+by_country <-
+  aei_small_std %>%
+  group_by(Countryname) %>%
+  nest()
+```
+
+use default priors here, they allow things to vary nicely on a per country basis. 
+```{r}
+job::job({
+id_fits_time_zib <-
+  brm(data = by_country$data[[1]],
+      formula = bf(irrfrac ~ 1 + yearcount,
+                   zi ~ 1 + yearcount),
+      family = zero_inflated_beta(),
+      control = list(adapt_delta = 0.95, 
+                     max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 2,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/final_fits/Country_fits_pred_intercept_years_small.Rds")
+})
+
+# map to all other countries
+job::job({
+  yearcount_fits <- 
+  by_country %>%
+  mutate(model = map(data, ~update(id_fits_time_zib, newdata = ., seed = 2)))
+  
+  
+#save nested df for later analysis on local machine
+saveRDS(yearcount_fits, "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/final_fits/Country_fits_pred_intercept_years_full.Rds")
+  })
+
+
+```
+
+
+
+# id Models
+
+
+## Unconditional Means Model ID
+
+aims to look at general effects across cells without time as a component
+
+### Priors
+
+```{r}
+get_prior(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + (1|id),
+                   zi ~ 1 + (1|id)),
+      family = zero_inflated_beta())
+```
+Visualization of priors on the outcome scale. Remember, the intercept and zi parameters are on a logit scale (use the inverse logit, `plogis()`) and phi is on a log scale (use the `exp()`).
+
+#### Response variable line
+
+For the intercept:
+```{r intercept_prior}
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_histogram(aes(x = Distribution, color = Transformation), bins = 100) + 
+  xlim(-5,5) + xlab(NULL) + 
+  facet_wrap(~Transformation)+
+  ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
+```
+This one works fine.
+
+```{r}
+
+```
+
+#### Zi line
+
+```{r}
+uncond_means_id <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + (1|id),
+                   zi ~ 1 + (1|id)),
+      family = zero_inflated_beta(),
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_means_id_small.Rds")
+
+```
+
+
+## Unconditional Growth Model ID
+aims to look at general effects across cells and over time prior to adding other preds
+
+
+```{r}
+uncond_growth_id <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|id),
+                   zi ~ 1 + yearcount + (1 + yearcount|id)),
+      family = zero_inflated_beta(),
+      prior = c(prior(normal(0, 100), class = b)),
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      inits = "0", #had trouble initializing beta_lpdf. second shape parameter was 0. Solution found here https://discourse.mc-stan.org/t/rejecting-initial-value/7152/4
+      iter = 1000, 
+      chains = 4,
+      seed = 348,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_growth_id_small.Rds")
+```
+
+
+## Full Simple model ID
+
+```{r}
+full_simple_id <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 0 + Intercept + yearcount + ISO + ISO:yearcount + (1 + yearcount|id), 
+                   zi ~ 0 + Intercept + yearcount + ISO + ISO:yearcount + (1 + yearcount|id)),
+      family = zero_inflated_beta(),
+      prior = c(prior(normal(0, 100), class = b)),
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      inits = "0",
+      chains = 4,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_full_id_small2.Rds")
+```
+
+
+
+
+# ISO models
+
+## Unconditional Means Model ISO
+
+```{r}
+job::job({
+uncond_means_ISO <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + (1|ISO),
+                   zi ~ 1 + (1|ISO)),
+      family = zero_inflated_beta(),
+      control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_means_ISO_small.Rds")
+})
+```
+
+
+
+
+## Unconditional Growth Model ISO
+```{r}
+job::job({
+uncond_growth_ISO <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
+                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(),
+      prior = c(prior(normal(0, 100), class = b)),
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      inits = "0",
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_growth_ISO_small.Rds")
+})
+```
+
+
+
+## Full Simple model ISO
+```{r}
+full_simple_ISO <-
+  brm(data = aei_small_std,
+      formula = bf(irrfrac ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)
+                   zi ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(),
+      prior = c(prior(normal(0, 100), class = b)),
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      cores = 2, 
+      iter = 1000, 
+      chains = 4,
+      seed = 2,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_full_ISO_small.Rds")
+
+```
+
+
+
+create a list of data frames to run with brm_multiple
+
+```{r}
+num_groups <- 10
+folds <- 
+  aei_small_std %>% 
+  drop_na(years, rugged, precip, gdppc, popdens, dist, six_regions, pet, DD.regime) %>% 
+  group_by((row_number()-1) %/% (n()/num_groups)) %>%
+  nest %>% 
+  pull(data)
+
+```
+
+
+
+
+# Complex model 
+
+without interactions, at lower levels they are easier to sort out but here its too complex
+
+```{r}
+full_simple <-
+  brm_multiple(data = folds,
+               formula = bf(irrfrac ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id),
+                            zi ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id)),
+               family = zero_inflated_beta(),
+               prior = c(prior(normal(0, 100), class = b)),
+               control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+               cores = 2, 
+               iter = 1000, 
+               chains = 4,
+               seed = 2,
+               file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/complex_full_small.Rds")
+```
+
+
+

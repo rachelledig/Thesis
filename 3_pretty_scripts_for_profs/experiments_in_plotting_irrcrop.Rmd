@@ -1,0 +1,67 @@
+```{r}
+
+irrcrop <- aei$irrcrop
+
+irrcrop <- matrix(aei$irrcrop[aei$irrcrop!=""], ncol=46, byrow=TRUE)
+irrcrop <- array(irrcrop)
+
+
+cropland = apply(cftfrac[,1:32,],c(1,3),sum)
+irrcrop = irrFrac/cropland
+```
+
+```{r}
+ncells=67420
+plotting=T
+#irrcrop
+if (plotting){
+  years=seq(1, 105, 1)#c(2,10,20,30,40,50,60,70,80,90,100,105)
+  for (y in years){
+    plotGlobalMan(data = irrcrop[,y]*100,file = paste0(oFol,"/irrigcrop/irrigcrop_",y+1900,".png"),title =
+                    "",brks=c(-1,0,1,5,10,20,35,50,75,99.9,100),palette=c("#ffffff","#ffebbe","#f5ca7b","#c8d79e","#aacd65","#bdd1ff","#7b8ef5","#444e89","#d89e9d","#8a4444"),legendtitle =
+                    "",legYes = T,eps = F)
+  }
+}
+
+imgs <- list.files("/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/irrigcrop/", full.names = TRUE)
+img_list <- lapply(imgs, image_read)
+
+## join the images together
+img_joined <- image_join(img_list)
+
+## animate at 2 frames per second
+img_animated <- image_animate(img_joined, fps = 2)
+
+## view animated image
+img_animated
+
+## save to disk
+image_write(image = img_animated,
+            path = "tx-sales.gif")
+
+
+#gifs
+library(gtools)
+library(magick)
+library(ggplot2)
+
+myFiles <- list.files("/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/irrigcrop")
+#imgs <- mixedsort(myFiles)
+img_list <- lapply(myFiles, image_read)
+
+## join the images together
+img_joined <- image_join(myFiles)
+
+## animate at 2 frames per second
+img_animated <- image_animate(img_joined, fps = 2)
+
+## view animated image
+img_animated
+
+## save to disk
+image_write(image = img_animated,
+            path = "/Volumes/RachelExternal/Thesis/Thesis/Plots/irrigcrop/irrcrop_yearly.gif")
+
+
+```
+

@@ -1,6 +1,7 @@
 .Rproj.user
 .Rhistory
 *.RData
+*.Rds
 .RDataTmp
 .RDataTmp1
 .RDataTmp2
