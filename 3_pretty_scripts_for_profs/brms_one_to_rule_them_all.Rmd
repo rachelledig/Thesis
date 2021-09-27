@@ -19,6 +19,9 @@ aei_small <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.c
 aei_small_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
 #aei_std <- read.csv("/p/projects/open/ledig/thesis/aei_std.csv")
 
+#for ease of life
+aei_small_std <- aei_small_std %>% filter(id %in% sample(levels(id),50))
+
 summary(aei_small_std)
 ```
 
@@ -94,58 +97,67 @@ saveRDS(yearcount_fits, "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_
 
 aims to look at general effects across cells without time as a component
 
+
 ### Priors
 
 ```{r}
 get_prior(data = aei_small_std,
       formula = bf(irrfrac ~ 1 + (1|id),
+                   phi ~ 1 + (1|id),
                    zi ~ 1 + (1|id)),
       family = zero_inflated_beta())
 ```
 Visualization of priors on the outcome scale. Remember, the intercept and zi parameters are on a logit scale (use the inverse logit, `plogis()`) and phi is on a log scale (use the `exp()`).
 
-#### Response variable line
 
-For the intercept:
-```{r intercept_prior}
-tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
-  mutate(`plogis Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
-  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `plogis Outcome Scale`), 
-               names_to = "Transformation", 
-               values_to = "Distribution") %>% 
-  ggplot() +
-  geom_histogram(aes(x = Distribution, color = Transformation), bins = 100) + 
-  xlim(-5,5) + xlab(NULL) + 
-  facet_wrap(~Transformation)+
-  ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
-```
-This one works fine.
+## Model
 
+Set the priors
 ```{r}
-
+uncond_means_priors_id <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+            set_prior("student_t(3, 0, 2.5)", class = "Intercept", dpar = "phi"), #phi Intercept
+            set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi")) #slope parameters, knowing that 
+    
 ```
 
-#### Zi line
+
 
 ```{r}
+job::job({
 uncond_means_id <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 1 + (1|id),
+                  phi ~ 1 + (1|id),
                    zi ~ 1 + (1|id)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
+      prior = uncond_means_priors_id,
       cores = 2, 
       iter = 1000, 
       chains = 4,
       seed = 2,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_means_id_small.Rds")
-
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/tiny_trials/simple_uncond_means_id_small.Rds")
+})
 ```
 
 
 ## Unconditional Growth Model ID
 aims to look at general effects across cells and over time prior to adding other preds
+
+```{r}
+get_prior(data = aei_small_std,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|id),
+                   phi ~ 1 + yearcount + (1 + yearcount|id),
+                   zi ~ 1 + yearcount + (1 + yearcount|id)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"))
+```
+
 
 
 ```{r}
@@ -153,7 +165,9 @@ uncond_growth_id <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|id),
                    zi ~ 1 + yearcount + (1 + yearcount|id)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
       prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
@@ -173,7 +187,9 @@ full_simple_id <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 0 + Intercept + yearcount + ISO + ISO:yearcount + (1 + yearcount|id), 
                    zi ~ 0 + Intercept + yearcount + ISO + ISO:yearcount + (1 + yearcount|id)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
       prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
@@ -198,7 +214,9 @@ uncond_means_ISO <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 1 + (1|ISO),
                    zi ~ 1 + (1|ISO)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
       control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       cores = 2, 
@@ -219,7 +237,9 @@ uncond_growth_ISO <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
                    zi ~ 1 + yearcount + (1 + yearcount|ISO)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
       prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
@@ -240,7 +260,9 @@ full_simple_ISO <-
   brm(data = aei_small_std,
       formula = bf(irrfrac ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)
                    zi ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)),
-      family = zero_inflated_beta(),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
       prior = c(prior(normal(0, 100), class = b)),
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
@@ -279,7 +301,9 @@ full_simple <-
   brm_multiple(data = folds,
                formula = bf(irrfrac ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id),
                             zi ~ 0 + Intercept + yearcount + DD.regime + dist + popdens + pet + gdppc + rugged + (1 + yearcount + popdens + DD.regime + gdppc|id)),
-               family = zero_inflated_beta(),
+               family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
                prior = c(prior(normal(0, 100), class = b)),
                control = list(adapt_delta = 0.95, 
                        max_treedepth=11),

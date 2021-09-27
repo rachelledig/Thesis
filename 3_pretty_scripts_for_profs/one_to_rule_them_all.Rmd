@@ -56,9 +56,9 @@ uncond_means_priors_id <-
 uncond_means_code_id <-
   make_stancode(data = aei_small_std,
                 formula = bf(irrfrac ~ 1 + (1|id),
+                             phi ~ 1 + (1|id),
                              zi ~ 1 + (1|id)),
-                family = zero_inflated_beta(),
-                sample_prior = "only")
+                family = zero_inflated_beta())
 ```
 
 
@@ -291,7 +291,7 @@ saveRDS(full_simple_stan_id, "/p/projects/open/ledig/thesis/fits/stan_full_simpl
 
 
 
-# Complex model####################################################################################
+# Complex model
 
  without interactions, at lower levels they are easier to sort out but here its too complex
 ```{r}
