@@ -25,24 +25,6 @@ aei_small_std <- aei_small_std %>% filter(id %in% sample(levels(id),50))
 summary(aei_small_std)
 ```
 
-# irrfrac data
-
-```{r}
-ggplot(data = aei_small_std, aes(irrfrac)) + geom_histogram(bins = 100)
-```
-
-```{r}
-pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_small) # Smoothed regression lines
-```
-
-
-```{r}
-pairs(~irrfrac + precip + humid + pet,data=aei_small) 
-```
-
-```{r}
-pairs(~irrfrac + dist + DD.regime,data=aei_small) 
-```
 
 
 # Individual cell change model
@@ -51,9 +33,9 @@ run first model based on time series
 
 ```{r}
 # nest data
-by_country <-
+by_id <-
   aei_small_std %>%
-  group_by(Countryname) %>%
+  group_by(id) %>%
   nest()
 ```
 
@@ -202,97 +184,38 @@ full_simple_id <-
 ```
 
 
-
-
-# ISO models
-
-## Unconditional Means Model ISO
-
-```{r}
-job::job({
-uncond_means_ISO <-
-  brm(data = aei_small_std,
-      formula = bf(irrfrac ~ 1 + (1|ISO),
-                   zi ~ 1 + (1|ISO)),
-      family = zero_inflated_beta(link = "logit", 
-                                  link_phi = "log", 
-                                  link_zi = "logit"),
-      control = list(adapt_delta = 0.95, 
-                       max_treedepth=11),
-      cores = 2, 
-      iter = 1000, 
-      chains = 4,
-      seed = 2,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_means_ISO_small.Rds")
-})
-```
-
-
-
-
-## Unconditional Growth Model ISO
-```{r}
-job::job({
-uncond_growth_ISO <-
-  brm(data = aei_small_std,
-      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
-                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
-      family = zero_inflated_beta(link = "logit", 
-                                  link_phi = "log", 
-                                  link_zi = "logit"),
-      prior = c(prior(normal(0, 100), class = b)),
-        control = list(adapt_delta = 0.95, 
-                       max_treedepth=11),
-      cores = 2, 
-      iter = 1000, 
-      chains = 4,
-      inits = "0",
-      seed = 2,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_uncond_growth_ISO_small.Rds")
-})
-```
-
-
-
-## Full Simple model ISO
-```{r}
-full_simple_ISO <-
-  brm(data = aei_small_std,
-      formula = bf(irrfrac ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)
-                   zi ~ 0 + Intercept +  + six_regions + yearcount + six_regions:yearcount + (1 + yearcount|ISO)),
-      family = zero_inflated_beta(link = "logit", 
-                                  link_phi = "log", 
-                                  link_zi = "logit"),
-      prior = c(prior(normal(0, 100), class = b)),
-        control = list(adapt_delta = 0.95, 
-                       max_treedepth=11),
-      cores = 2, 
-      iter = 1000, 
-      chains = 4,
-      seed = 2,
-      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/simple_full_ISO_small.Rds")
-
-```
-
-
-
-create a list of data frames to run with brm_multiple
-
-```{r}
-num_groups <- 10
-folds <- 
-  aei_small_std %>% 
-  drop_na(years, rugged, precip, gdppc, popdens, dist, six_regions, pet, DD.regime) %>% 
-  group_by((row_number()-1) %/% (n()/num_groups)) %>%
-  nest %>% 
-  pull(data)
-
-```
-
-
-
-
 # Complex model 
+
+## Biophysical
+
+### Unconditional means model
+
+```{r}
+
+```
+
+### Unconditional Growth model
+
+
+### Full model
+
+
+## Biophysical and Sociological
+
+
+### Unconditional means model
+
+```{r}
+
+```
+
+### Unconditional Growth model
+
+
+### Full model
+
+
+
 
 without interactions, at lower levels they are easier to sort out but here its too complex
 
@@ -313,6 +236,7 @@ full_simple <-
                seed = 2,
                file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/complex_full_small.Rds")
 ```
+
 
 
 

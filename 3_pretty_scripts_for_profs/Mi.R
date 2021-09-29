@@ -132,30 +132,7 @@ saveRDS(full_simple_stan_id, "/p/projects/open/ledig/stan_uncond_growth_id.rds")
 
 
 
-uncond_means_data_ISO <- 
-  make_standata(data = aei_std,
-                formula = bf(irrcrop ~ 1 + (1|ISO),
-                             coi ~ 1 + (1|ISO),
-                             zoi ~ 1 + (1|ISO)),
-                family = zero_one_inflated_beta())
-
-uncond_means_code_ISO <-
-  make_stancode(data = aei_std,
-                formula = bf(irrcrop ~ 1 + (1|ISO),
-                             coi ~ 1 + (1|ISO),
-                             zoi ~ 1 + (1|ISO)),
-                family = zero_one_inflated_beta(),
-                sample_prior = "only")
-
-uncond_means_stan_ISO <-
-  stan(model_code = uncond_means_code_ISO, 
-       data = uncond_means_data_ISO, 
-       iter = 2000, 
-       chains = 4,
-       cores = 4,
-       seed = 17,
-       control = list(adapt_delta = 0.9, 
-                      max_treedepth=11))
+n
 
 saveRDS(uncond_means_stan_id, "/p/projects/open/ledig/stan_uncond_means_ISO.rds")
 

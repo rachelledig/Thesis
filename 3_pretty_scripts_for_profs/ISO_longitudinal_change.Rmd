@@ -1,0 +1,576 @@
+
+
+Packages
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(brms)
+library(purrr)
+library(ggplot2)
+library(GGally)
+library(parallel)
+library(kableExtra)
+```
+
+
+Data
+
+```{r load_data}
+aei_small <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+aei_small_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
+#aei_std <- read.csv("/p/projects/open/ledig/thesis/aei_std.csv")
+
+#for ease of life
+aei_smaller <- aei_small %>% sample_n(2000) #%>% filter(ISO %in% sample(levels(ISO),3))
+
+```
+
+```{r}
+#perparing to log transform
+aei_smaller <- 
+  aei_smaller %>% 
+  mutate(popdens = popdens + 1, 
+         dist = dist + 1,
+         precip = precip + 1,
+         humid = humid + 1,
+         medinc = medinc + 1)
+
+
+normalized<-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - min(x)) / (max(x) - min(x))
+  y[!is.na(y)]<-x
+  return(y)
+}
+
+centered <-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - mean(x)) / (sd(x)*2)
+  y[!is.na(y)]<-x
+  return(y)
+}
+
+
+aei_smaller_std <-
+  aei_smaller %>% 
+  mutate(across(c(17:21,25,26,31), centered)) %>% 
+  mutate(across(c(24), normalized)) %>% 
+  mutate(across(c(2,3,6,27,29), as.factor)) %>% 
+  select(lat, lon, id, ISO, Countryname, six_regions, eight_regions, yearcount, irrfrac,
+         dist, medinc, precip, humid, rugged, crl_yld, ag_gdp, popdens, gdppc, 
+         DD.regime,DD.category, Democracy)
+
+
+summary(aei_smaller_std)
+```
+
+#### `brm()` settings
+```{r brmsettings}
+df = aei_smaller_std
+ncore = 2 #detectCores()
+options(mc.cores = parallel::detectCores())
+niter = 500
+nchain = 2
+seed = 2
+
+#saving location
+folder = "/Volumes/RachelExternal/Thesis/Thesis/final/fits/"
+```
+
+
+# Individual Country Change Model
+
+run first model based on time series
+
+```{r}
+# nest data
+by_country <-
+  aei_small_std %>%
+  group_by(Countryname) %>%
+  nest()
+```
+
+use default priors here, they allow things to vary nicely on a per country basis. 
+```{r}
+job::job({
+id_fits_time_zib <-
+  brm(data = by_country$data[[1]],
+      formula = irrfrac ~ 1 + yearcount,
+      family = gaussian(), 
+      control = list(adapt_delta = 0.95, 
+                     max_treedepth=11),
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      seed = seed,
+      file = "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/final_fits/Country_fits_pred_intercept_years_small.Rds")
+})
+
+# map to all other countries
+job::job({
+  yearcount_fits <- 
+  by_country %>%
+  mutate(model = map(data, ~update(id_fits_time_zib, newdata = ., seed = seed)))
+  
+  
+#save nested df for later analysis on local machine
+saveRDS(yearcount_fits, "/Volumes/RachelExternal/Thesis/Thesis/3_pretty_scripts_for_profs/Fits/final_fits/Country_fits_pred_intercept_years_full.Rds")
+  })
+
+
+```
+
+
+# Simple models
+
+## Unconditional Means Model ISO
+
+```{r}
+get_prior(data = df,
+      formula = bf(irrfrac ~ 1 + (1|ISO), 
+                   zi ~ 1 + (1|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+Using default priors here. 
+```{r}
+uncond_means_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd")) #stdev parameters
+```
+
+
+```{r}
+job::job({
+uncond_means_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + (1|ISO),
+                   zi ~ 1 + (1|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = uncond_means_prior_ISO,
+      control = list(adapt_delta = 0.99, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      seed = ncore,
+      file = paste0(folder,"ISO_simple_uncondmeans_trial.Rds"))
+})
+```
+
+```{r}
+print(uncond_means_ISO)
+```
+
+
+```{r}
+posterior_samples(uncond_means_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+
+```{r}
+pp_check(uncond_means_ISO)
+```
+
+
+
+## Unconditional Growth Model ISO
+
+
+
+```{r}
+get_prior(data = df,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
+                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+
+
+Using default priors here. 
+```{r}
+uncond_growth_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+
+```{r}
+job::job({
+uncond_growth_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
+                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = uncond_growth_prior_ISO,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      seed = seed,
+      file = paste0(folder,"ISO_simple_uncondgrowth_trial.Rds"))
+})
+```
+
+```{r}
+summary(uncond_growth_ISO)
+```
+
+```{r}
+posterior_samples(uncond_growth_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+```{r}
+conditional_effects(uncond_growth_ISO)
+```
+
+
+## Full Simple model ISO
+
+
+```{r}
+get_prior(data = df,
+      formula = bf(irrfrac ~ 1 +  + eight_regions + yearcount + eight_regions:yearcount + (1 + yearcount|ISO),
+                   zi ~ 1 + eight_regions + yearcount + eight_regions:yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+
+```{r}
+full_simple_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+```{r}
+job::job({
+full_simple_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 +  + eight_regions + yearcount + eight_regions:yearcount + (1 + yearcount|ISO),
+                   zi ~ 1 + eight_regions + yearcount + eight_regions:yearcount + (1 + yearcount|ISO)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
+      prior = full_simple_prior_ISO,
+      control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      seed = seed,
+      file = paste0(folder,"ISO_simple_full_trial.Rds"))
+})
+```
+
+```{r}
+print(full_simple_ISO)
+```
+
+
+```{r}
+posterior_samples(full_simple_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+
+```{r}
+conditional_effects(full_simple_ISO)
+```
+
+
+
+# Complex model 
+
+## Biophysical
+
+### Unconditional means model
+
+The unconditional means models is the same as stated above. 
+
+### Unconditional Growth model
+
+```{r}
+get_prior(data = df,
+          formula = bf(irrfrac ~ 1 + yearcount + precip + medinc + dist + rugged + (1 + yearcount|ISO),
+                   zi ~ 1 + dist), 
+          family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+```{r}
+bio_uncond_growth_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+
+```{r}
+job::job({
+bio_uncond_growth_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + yearcount + precip + medinc + dist + rugged + (1 + yearcount|ISO),
+                   zi ~ 1 + dist),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = bio_uncond_growth_prior_ISO,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      seed = seed,
+      file = paste0(folder,"ISO_biophysical_uncondgrowth_trial.Rds"))
+})
+```
+
+```{r}
+print(bio_uncond_growth_ISO)
+```
+
+```{r}
+posterior_samples(bio_uncond_growth_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+
+```{r}
+conditional_effects(bio_uncond_growth_ISO, effects = "rugged")
+```
+
+
+### Full model
+
+Not really sure if this model makes sense, will comment it out for now. 
+
+<!-- ```{r} -->
+<!-- get_prior(data = df, -->
+<!--           formula = bf(irrfrac ~ 1 + eight_regions + yearcount + precip + medinc + dist + rugged + -->
+<!--                      eight_regions:yearcount + eight_regions:precip + eight_regions:medinc + eight_regions:dist + eight_regions:rugged + (1 + yearcount|ISO), -->
+<!--                    zi ~ 1 + dist), -->
+<!--           family = zero_inflated_beta(link = "logit",  -->
+<!--                                   link_phi = "identity",  -->
+<!--                                   link_zi = "logit")) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- bio_full_prior_ISO <-  -->
+<!--   c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept -->
+<!--     set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link -->
+<!--     set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept -->
+<!--     set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters -->
+<!--     set_prior("lkj(2)", class = "cor"), #correlation prior -->
+<!--     set_prior("normal(0,1)", class = "b")) #slope prior  -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- job::job({ -->
+<!--   bio_full_ISO <- -->
+<!--   brm(data = df, -->
+<!--       formula = bf(irrfrac ~ 1 +  + eight_regions + yearcount + precip + medinc + dist + rugged + -->
+<!--                      eight_regions:yearcount + eight_regions:precip + eight_regions:medinc + eight_regions:dist + eight_regions:rugged + (1 + yearcount|ISO), -->
+<!--                    zi ~ 1 + dist), -->
+<!--       family = zero_inflated_beta(link = "logit",  -->
+<!--                                   link_phi = "identity",  -->
+<!--                                   link_zi = "logit"), -->
+<!--       prior = bio_full_prior_ISO, -->
+<!--       control = list(adapt_delta = 0.95,  -->
+<!--                        max_treedepth=11), -->
+<!--       #sample_prior = "only", -->
+<!--       cores = ncore,  -->
+<!--       iter = niter,  -->
+<!--       chains = nchain, -->
+<!--       seed = seed, -->
+<!--       file = paste0(folder,"ISO_biophysical_full_trial.Rds")) -->
+<!-- }) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- print(bio_full_ISO) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- posterior_samples(bio_full_ISO, pars = "b_") %>%  -->
+<!--   mutate(across(.cols = starts_with("b_phi"), exp)) %>%  -->
+<!--   mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>%  -->
+<!--   posterior_summary() %>%  -->
+<!--   as.data.frame()  -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- conditional_effects(bio_full_ISO, effects = "yearcount:eight_regions") -->
+<!-- ``` -->
+
+
+## Biophysical and Sociological
+
+### Unconditional means model
+
+The unconditional means models is the same as stated above. 
+
+### Unconditional Growth model
+
+```{r}
+get_prior(data = df,
+          formula = bf(irrfrac ~ 1 + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy + (1 + yearcount + popdens + gdppc + Democracy|ISO),
+                   zi ~ 1 + dist + gdppc),
+          family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+
+```{r}
+biosoc_uncond_growth_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+
+```{r}
+job::job({
+biosoc_uncond_growth_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy + (1 + yearcount + popdens + gdppc + Democracy|ISO),
+                   zi ~ 1 + dist + gdppc),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
+      prior = biosoc_uncond_growth_prior_ISO,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      seed = seed,
+      file = paste0(folder,"ISO_biosocio_uncondgrow_trial2.Rds"))
+})
+```
+
+```{r}
+print(biosoc_uncond_growth_ISO)
+```
+
+```{r}
+posterior_samples(biosoc_uncond_growth_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+
+```{r}
+conditional_effects(biosoc_uncond_growth_ISO)
+```
+
+
+### Full model
+
+```{r}
+get_prior(data = df, 
+          formula = bf(irrfrac ~ 1 + eight_regions + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy +
+                     (1 + yearcount + popdens + gdppc + Democracy|ISO),
+                   zi ~ 1 + dist + gdppc),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+
+```{r}
+biosoc_full_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+
+```{r}
+job::job({
+  full_simple_ISO <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + eight_regions + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy +
+                     (1 + yearcount + popdens + gdppc + Democracy|ISO),
+                   zi ~ 1 + dist + gdppc),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "log", 
+                                  link_zi = "logit"),
+      prior = biosoc_full_prior_ISO,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      #sample_prior = "only",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      seed = seed,
+      inits = "0",
+      threads = threading(2),
+      backend = "cmdstanr",
+      file = paste0(folder,"ISO_biosocio_full_trial.Rds"))
+})
+```
+
+```{r}
+print(full_simple_ISO)
+```
+
+```{r}
+posterior_samples(full_simple_ISO, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() 
+```
+
+```{r}
+conditional_effects(full_simple_ISO)
+```
+

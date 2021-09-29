@@ -1,6 +1,7 @@
 ---
 bibliography: "/Volumes/RachelExternal/Thesis/Thesis/references.bib"
 ---
+# Data
 
 Input data from Fabian and LPJML
 
@@ -17,8 +18,8 @@ load(file=paste0(iFol,"pet_data.RData"))
 load(file=paste0(iFol,"landfrac_67420.RData"))
 source(file=paste0(iFol,"lpjmliotools_20201104.R"))
 
-#remove some stuff we wont use
-rm(mean_increase, discharge_landuse, evap_landuse, interc_landuse, runoff_landuse, total_PET_allcrops, transp_blue_landuse, transp_green_landuse)
+rm(transp_blue_landuse, transp_green_landuse, runoff_landuse, discharge_landuse, evap_landuse, interc_landuse, mean_increase)
+
 ```
 
 These datasets contain the following data. Not all predictors will be used.
@@ -104,8 +105,11 @@ pet_data.RData contains
 ```{r packages}
 library(tidyverse)
 library(dplyr)
+library(agrmt)
 ```
 
+
+# Dataframe Assembly
 ```{r irrfrac}
 aei <- as.data.frame(irrFrac)
 rm(irrFrac)
@@ -241,6 +245,21 @@ aei <- aei %>%
 rm(dist, distNextIrr)
 ```
 
+```{r median_increase}
+medinc <- as.data.frame(median_increase)
+colnames(medinc) <- seq(1901, 2005, by = 1)
+medinc$id <- seq(1, 67420, by =1)  
+
+medinc <- medinc %>% 
+  pivot_longer(-id, names_to = "years", values_to = "medinc")
+
+aei <- aei %>% 
+  right_join(., medinc, by = c("years", "id"))
+
+rm(medinc, median_increase)
+```
+
+
 ```{r popdens}
 pop <- as.data.frame(popdens)
 colnames(pop) <- seq(1901, 2011, by = 1)
@@ -351,9 +370,9 @@ Democracy
 
 ```{r democracy}
 aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Bjørnskov-Rode-Democracy-data.csv") %>% 
-  select(-c(6:19,21:22,24:51)) %>% 
+  select(-c(6:12,14:19,21:22,24:51)) %>% 
   rename(ISO = country.isocode, years = year) %>% 
-  select(ISO, years, DD.regime, DD.category, Colony, Communist) %>% 
+  select(ISO, years, DD.regime, DD.category, Democracy) %>% 
   mutate(DD.regime = replace_na(DD.regime, 6)) %>% 
   left_join(aei, ., by = c("ISO", "years")) 
   
@@ -361,7 +380,8 @@ aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Da
 ```
 
 
-Variable transformation
+#Variable transformation
+
 - Irrigation fraction as a proportion of cropland, not cell area
 - Humidity, precipitation divided by PET. Both are in the same units of mm/yr
 
@@ -383,6 +403,8 @@ summary(aei)
 write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_full.csv")
 ```
 
+
+# Removal of countries with < 5 cells
 
 Finally, remove countries that have 5 or less cells.
 
@@ -409,7 +431,7 @@ write_csv(aei_clean, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_clean.cs
 
 
 
-# 5 year time steps
+# Slimming to 5 year time steps
 
 
 ```{r}
@@ -417,8 +439,78 @@ aei_small <- aei_clean %>%
   subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
 
 write_csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+
+summary(aei_small)
 ```
   
+# Histograms
+
+
+```{r histdist}
+hist(aei_small$irrfrac, breaks = 50)
+```
+
+
+```{r histdist}
+hist(aei_small$dist, breaks = 1000)
+plot(aei_small$dist, aei_small$irrfrac)
+```
+
+```{r histmedinc}
+hist(aei_small$medinc, breaks = 100000, xlim = c(-1, 1))
+plot(aei_small$medinc, aei_small$irrfrac)
+```
+
+```{r histpopdens}
+hist(aei_small$popdens, breaks = 100)
+plot(aei_small$popdens, aei_small$irrfrac)
+```
+
+```{r histgdp}
+hist(aei_small$gdppc, breaks = 100)
+plot(aei_small$gdppc, aei_small$irrfrac)
+```
+
+```{r histprecip}
+hist(aei_small$precip, breaks = 100)
+plot(aei_small$precip, aei_small$irrfrac)
+```
+
+```{r histpet}
+hist(aei_small$pet, breaks = 100)
+plot(aei_small$pet, aei_small$irrfrac)
+```
+
+```{r}
+hist(aei_small$humid, breaks = 100)
+plot(aei_small$humid, aei_small$irrfrac)
+```
+
+
+```{r histrugg}
+hist(aei_small$rugged, breaks = 100)
+plot(aei_small$rugged, aei_small$irrfrac)
+```
+
+
+
+# `pairs()`
+
+
+
+```{r}
+pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_small) 
+```
+
+```{r}
+pairs(~irrfrac + precip + humid + pet,data=aei_small) 
+```
+
+I will be using precip. It fits better conceptually and the relationship here looks stronger than pet. 
+
+```{r}
+pairs(~irrfrac + dist + medinc + Democracy + DD.regime,data=aei_small) 
+```
 
 
 # Standardization
@@ -439,14 +531,52 @@ centered <-function(y) {
 }
 ```
 
+Some variables need to be logged before centering on 0.
+```{r}
+aei_small %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
+```
+Recall the histograms, only rugged and pet had (semi) normal distributions (they were not normally distributed at all but at least both were not seemingly zero inflated like the others). Knowing that pet will not be used and rugged just needs to be scaled, take the log of the other variables. All predictors to be logged contain zeros (or neg, medinc) except for gdp. All of the 0s here represent different things:
+
+- dist, cells with irrigation have a value of 0. cells with no irrigation have a dist value greater than 22.83487km.
+- popdens, here 0 means 0. 
+- precip, here 0 means 0 as well. 
+- humid, same as precip.
+- medinc, this one is a conundrum, as there are are negative median yield increases
+
+Here are the min non zero values for each.
+```{r}
+minnz(aei_small$dist)
+minnz(aei_small$popdens)
+minnz(aei_small$precip)
+minnz(aei_small$humid)
+```
+
+This is controversial, but I will just add 1 to these columns and take the log. In other places, recommendations are made to add half of the minimum non zero value. Although this seems fine, for popdens and precip and humid this would produce negative values on the log scale. The solution of adding 1 is not my most favorite idea but must be done.
 
 ```{r}
 
+aei_small <- 
+  aei_small %>% 
+  mutate(popdens = popdens + 1, 
+         dist = dist + 1,
+         precip = precip + 1,
+         humid = humid+ 1,
+         medinc = medinc + 1)
+
+aei_small %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
+
+```
+ the only issue here will be medinc, still with neg values post log transform. 
+
+```{r}
 aei_small_std <-
   aei_small %>% 
-  mutate(across(c(17:21,24,25, 31), centered)) %>% 
-  mutate(across(c(23), normalized)) %>% 
-  mutate(across(c(2,3,6,26), as.factor))
+  mutate(across(c(17:21,25,26, 31), centered)) %>% 
+  mutate(across(c(24), normalized)) %>% 
+  mutate(across(c(2,3,6,27, 29), as.factor)) %>% 
+  select(lat, lon, id, ISO, Countryname, six_regions, eight_regions, yearcount, irrfrac,
+         dist, medinc, precip, humid, rugged, crl_yld, ag_gdp, popdens, gdppc, 
+         DD.regime,DD.category, Democracy)
 
 
 summary(aei_small_std)
