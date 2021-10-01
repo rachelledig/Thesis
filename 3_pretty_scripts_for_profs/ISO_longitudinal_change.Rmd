@@ -14,6 +14,12 @@ library(kableExtra)
 ```
 
 
+
+
+
+
+
+
 # Data
 
 ```{r load_data}
@@ -68,6 +74,7 @@ aei_smaller_std <-
 summary(aei_smaller_std)
 ```
 
+
 # `brm()` settings
 ```{r brmsettings}
 df = aei_smaller_std
@@ -80,6 +87,112 @@ seed = 2
 #saving location
 folder = "/Volumes/RachelExternal/Thesis/Thesis/final/fits/"
 ```
+
+
+
+# Prior Vis
+
+
+Knowing that the most complicated model formula I will use is the one below, visualize the priors.
+```{r}
+get_prior(data = df, 
+          formula = bf(irrfrac ~ 1 + eight_regions + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy +
+                     eight_regions:yearcount + precip:yearcount + medinc:yearcount + dist:yearcount + rugged:yearcount + popdens:yearcount + gdppc:yearcount + Democracy:yearcount + (1 + yearcount |ISO),
+                   zi ~ 1 + dist + gdppc),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+```
+
+## Beta
+
+These priors have a logit link. i.e. to visualize them we need and inv logit.
+
+### mu Intercept
+
+```{r}
+tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
+  pivot_longer(cols = c(`Default Student T(3, 0, 2.5)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_histogram(aes(x = Distribution, color = Transformation)) + 
+  xlab(NULL) + facet_wrap(~Transformation, scales = "free") +
+  ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
+```
+
+### mu Slopes
+
+
+```{r}
+tibble(`Proper Normal(0, 1)` = rnorm(10000, 0, 1)) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Proper Normal(0, 1)`)) %>% 
+  pivot_longer(cols = c(`Proper Normal(0, 1)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_histogram(aes(x = Distribution, color = Transformation)) + 
+  xlab(NULL) + facet_wrap(~factor(Transformation, levels=c('Proper Normal(0, 1)','plogis Outcome Scale')), scales = "free") +
+  ggtitle("mu Slope Prior - Normal(0, 1)")
+```
+
+### phi
+
+As I am not predicting phi in the model formula, it has an identity link, meaning that it can just be visualized. 
+
+
+```{r}
+tibble(`Default Gamma(0.01, 0.01)` = rgamma(10000, rate = 0.01, shape = 0.01)) %>%  #according to the stan documentation
+  pivot_longer(cols = c(`Default Gamma(0.01, 0.01)`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_density(aes(x = Distribution, color = Transformation)) + 
+  xlab(NULL) + xlim(-1,1) +
+  ggtitle("Default Zi Intercept Prior - `Default Gamma(0.01, 0.01)`")
+```
+
+This is super tight.. I wonder if I am plotting it correctly.
+
+
+## Bernoullii
+
+These priors have a logit link. i.e. to visualize them we need and inv logit.
+
+### Intercept
+
+```{r}
+tibble(`Default Logistic(0, 1)` = rlogis(10000, 0, 1)) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Default Logistic(0, 1)`)) %>% 
+  pivot_longer(cols = c(`Default Logistic(0, 1)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_histogram(aes(x = Distribution, color = Transformation)) + 
+  xlab(NULL) + facet_wrap(~Transformation, scales = "free") +
+  ggtitle("Default Zi Intercept Prior - `Default Logistic(0, 1)`")
+```
+
+### Slopes
+
+
+```{r}
+tibble(`Proper Normal(0, 1)` = rnorm(10000, 0, 1)) %>%  
+  mutate(`plogis Outcome Scale` = plogis(`Proper Normal(0, 1)`)) %>% 
+  pivot_longer(cols = c(`Proper Normal(0, 1)`, `plogis Outcome Scale`), 
+               names_to = "Transformation", 
+               values_to = "Distribution") %>% 
+  ggplot() +
+  geom_histogram(aes(x = Distribution, color = Transformation)) + 
+  xlab(NULL) + facet_wrap(~factor(Transformation, levels=c('Proper Normal(0, 1)','plogis Outcome Scale')), scales = "free") +
+  ggtitle("Zi Slope Prior - Normal(0, 1)")
+```
+
+
+
+## cor and sd
+
 
 
 # Individual Country Change Model
@@ -631,24 +744,25 @@ get_prior(data = df,
 ```
 Using default priors here. 
 ```{r}
-uncond_means_prior_ISO <- 
+simple_cor_gterms_prior_ISO <- 
   c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
     set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
     set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
-    set_prior("student_t(3, 0, 2.5)", class = "sd")) #stdev parameters
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"))
 ```
 
 
 ```{r}
 job::job({
-uncond_means_ISO <-
+simple_cor_gterms_ISO <-
   brm(data = df,
       formula = bf(irrfrac ~ 1 + (1|i|ISO), 
                    zi ~ 1 + (1|i|ISO)),
       family = zero_inflated_beta(link = "logit", 
                                   link_phi = "identity", 
                                   link_zi = "logit"),
-      prior = uncond_means_prior_ISO,
+      prior = simple_cor_gterms_prior_ISO,
       control = list(adapt_delta = 0.99, 
                        max_treedepth=11),
       sample_prior = "yes",
@@ -658,19 +772,19 @@ uncond_means_ISO <-
       seed = ncore,
       threads = threading(2),
       backend = "cmdstanr",
-      file = paste0(folder,"ISO_simple_uncondmeans_5000.Rds"))
+      file = paste0(folder,"ISO_simple_cor_gterms_5000.Rds"))
 })
 ```
 
-5000 samples: 210.0 seconds. 2 chains, 2 cores, threading(2)
+5000 samples: Total execution time: 328.9 seconds. 2 chains, 2 cores, threading(2)
 
 ```{r}
-print(uncond_means_ISO)
+print(simple_cor_gterms_ISO)
 ```
 
 
 ```{r}
-posterior_samples(uncond_means_ISO, pars = "b_") %>% 
+posterior_samples(simple_cor_gterms_ISO, pars = "b_") %>% 
   mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
   mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
   posterior_summary() %>% 
@@ -678,7 +792,7 @@ posterior_samples(uncond_means_ISO, pars = "b_") %>%
 ```
 
 ```{r}
-pp_check(uncond_means_ISO)
+pp_check(simple_cor_gterms_ISO)
 ```
 
 
@@ -689,8 +803,8 @@ pp_check(uncond_means_ISO)
 
 ```{r}
 get_prior(data = df,
-      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
-                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|i|ISO),
+                   zi ~ 1 + yearcount + (1 + yearcount|i|ISO)),
       family = zero_inflated_beta(link = "logit", 
                                   link_phi = "identity", 
                                   link_zi = "logit"))
@@ -699,7 +813,7 @@ get_prior(data = df,
 
 Using default priors here. 
 ```{r}
-uncond_growth_prior_ISO <- 
+yrct_cor_gterms_prior_ISO <- 
   c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
     set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
     set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
@@ -711,14 +825,14 @@ uncond_growth_prior_ISO <-
 
 ```{r}
 job::job({
-uncond_growth_ISO <-
+yrct_cor_gterms_ISO <-
   brm(data = df,
-      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
-                   zi ~ 1 + yearcount + (1 + yearcount|ISO)),
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|i|ISO),
+                   zi ~ 1 + yearcount + (1 + yearcount|i|ISO)),
       family = zero_inflated_beta(link = "logit", 
                                   link_phi = "identity", 
                                   link_zi = "logit"),
-      prior = uncond_growth_prior_ISO,
+      prior = yrct_cor_gterms_prior_ISO,
         control = list(adapt_delta = 0.95, 
                        max_treedepth=11),
       sample_prior = "yes",
@@ -729,11 +843,11 @@ uncond_growth_ISO <-
       backend = "cmdstanr",
       inits = "0",
       seed = seed,
-      file = paste0(folder,"ISO_simple_uncondgrowth_5000.Rds"))
+      file = paste0(folder,"ISO_yrct_cor_gterms_5000.Rds"))
 })
 ```
 
-5000: Total execution time: 1023.9 seconds. 2 chains, 2 cores, threading(2)
+5000:  2 chains, 2 cores, threading(2)
 
 ```{r}
 summary(uncond_growth_ISO)
