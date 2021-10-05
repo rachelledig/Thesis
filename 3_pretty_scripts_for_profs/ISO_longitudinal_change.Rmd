@@ -11,6 +11,7 @@ library(ggplot2)
 library(GGally)
 library(parallel)
 library(kableExtra)
+library(rethinking)
 ```
 
 
@@ -25,7 +26,7 @@ library(kableExtra)
 ```{r load_data}
 aei_small <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
 aei_small_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
-#aei_std <- read.csv("/p/projects/open/ledig/thesis/aei_std.csv")
+
 
 aei_small_std <- aei_small_std %>% 
   mutate(across(c(4:8, 20:22), as.factor))
@@ -34,6 +35,54 @@ aei_small_std <- aei_small_std %>%
 #for ease of life
 aei_smaller <- aei_small %>% sample_n(5000) #%>% filter(ISO %in% sample(levels(ISO),3))
 ```
+
+```{r morani}
+grid <- aei_small %>% subset(yearcount == 45) %>% select(id, lat, lon, irrfrac) %>% unique() #of the year 2005
+write.csv(grid, "/Volumes/RachelExternal/Thesis/Data_and_Plots/latlonirrfrac.csv")
+
+
+library(devtools)
+install_github('mcooper/moranfast')
+
+library(moranfast)
+
+install.packages('Rcpp')
+library(Rcpp)
+
+grid <- read.table("/Volumes/RachelExternal/Thesis/Data_and_Plots/latlonirrfrac.csv", sep=",", header=T)
+moranfast(grid$irrfrac, grid$lon, grid$lat)
+
+
+
+```
+
+```{r}
+# load the sp library
+library(sp)
+library(geoR)
+library(gstat)
+
+# convert simple data frame into a spatial data frame object
+coordinates(grid)= ~ lon+lat
+
+
+# create a bubble plot with the random values
+bubble(grid, zcol='irrfrac', fill=TRUE, do.sqrt=FALSE, maxsize=3)
+
+
+TheVariogram=variogram(irrfrac~1, data=grid)
+plot(TheVariogram)
+```
+
+
+
+```{r sampling}
+samplegrid <- aei_small %>% select(lat, lon, id) %>% unique()
+samplegrid <- reshape(samplegrid, idvar = "lat", timevar = "lon", v.names = "id", direction = "wide")
+samplegrid <- samplegrid[order(-samplegrid$lat),]
+
+```
+
 
 ```{r}
 #perparing to log transform
@@ -148,8 +197,8 @@ tibble(`Default Gamma(0.01, 0.01)` = rgamma(10000, rate = 0.01, shape = 0.01)) %
                names_to = "Transformation", 
                values_to = "Distribution") %>% 
   ggplot() +
-  geom_density(aes(x = Distribution, color = Transformation)) + 
-  xlab(NULL) + xlim(-1,1) +
+  geom_histogram(aes(x = Distribution, color = Transformation), bins = 100) + 
+  xlab(NULL) + xlim(-0.1,0.1) +
   ggtitle("Default Zi Intercept Prior - `Default Gamma(0.01, 0.01)`")
 ```
 
@@ -192,6 +241,7 @@ tibble(`Proper Normal(0, 1)` = rnorm(10000, 0, 1)) %>%
 
 
 ## cor and sd
+
 
 
 
@@ -291,17 +341,25 @@ print(uncond_means_ISO)
 
 
 ```{r}
-posterior_samples(uncond_means_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
-  posterior_summary() %>% 
-  as.data.frame() 
+plot(uncond_means_ISO)
 ```
+These are untransformed. 
+
 
 ```{r}
-pp_check(uncond_means_ISO)
+posterior_samples(uncond_means_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame()
 ```
 
+
+
+```{r}
+pp_check(uncond_means_ISO, xlim = c(0, 0.1))
+```
 
 
 ## Unconditional Growth Model ISO
@@ -361,11 +419,19 @@ summary(uncond_growth_ISO)
 ```
 
 ```{r}
-posterior_samples(uncond_growth_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+plot(uncond_growth_ISO)
+```
+
+
+```{r}
+
+posterior_samples(uncond_growth_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
+
 ```
 ```{r}
 conditional_effects(uncond_growth_ISO)
@@ -427,11 +493,12 @@ print(full_simple_ISO)
 
 
 ```{r}
-posterior_samples(full_simple_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+posterior_samples(full_simple_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
 ```
 
 ```{r}
@@ -476,7 +543,7 @@ biosoc_full_prior_ISO <-
 
 ```{r}
 job::job({
-  full_simple_ISO <-
+  biosoc_full__ISO <-
   brm(data = df,
       formula = bf(irrfrac ~ 1 + eight_regions + yearcount + precip + medinc + dist + rugged + popdens + gdppc + Democracy +
                      eight_regions:yearcount + precip:yearcount + medinc:yearcount + dist:yearcount + rugged:yearcount + popdens:yearcount + gdppc:yearcount + Democracy:yearcount + (1 + yearcount |ISO),
@@ -500,23 +567,31 @@ job::job({
 ```
 No way: Total execution time: 1668.6 seconds. 2 chains, 2 cores, 5000 obvs. Roughly a half hour.
 ```{r}
-print(full_simple_ISO)
+print(biosoc_full__ISO)
 ```
 
+
 ```{r}
-posterior_samples(full_simple_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+plot(biosoc_full__ISO)
+```
+
+
+```{r}
+posterior_samples(biosoc_full__ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
 ```
 
 ```{r}
-conditional_effects(full_simple_ISO)
+conditional_effects(biosoc_full__ISO)
 ```
 
 ```{r}
-kfold(full_simple_ISO, chains = 1)
+pp_check(full_simple_ISO)
+
 ```
 
 
@@ -576,17 +651,22 @@ print(bio_only_ISO)
 ```
 
 ```{r}
-posterior_samples(bio_only_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+plot(bio_only_ISO)
+```
+
+
+```{r}
+posterior_samples(bio_only_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
 ```
 
 ```{r}
 conditional_effects(bio_only_ISO)
 ```
-
 
 
 
@@ -644,11 +724,12 @@ print(biosoc_no_inter_ISO)
 ```
 
 ```{r}
-posterior_samples(biosoc_no_inter_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+posterior_samples(biosoc_no_inter_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
 ```
 
 ```{r}
@@ -716,11 +797,18 @@ print(biosoc_v_slopes_ISO)
 ```
 
 ```{r}
-posterior_samples(biosoc_v_slopes_ISO, pars = "b_") %>% 
-  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
-  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+plot(biosoc_v_slopes_ISO)
+```
+
+
+
+```{r}
+posterior_samples(biosoc_v_slopes_ISO) %>%
+  select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
+  mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
+  mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
   posterior_summary() %>% 
-  as.data.frame() 
+  as.data.frame()
 ```
 
 ```{r}

@@ -428,68 +428,155 @@ summary(aei_clean)
 write_csv(aei_clean, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_clean.csv")
 ```
 
+# Removing cells with 0 cropland
+
+```{r}
+
+nocrop <- aei_clean %>% dplyr::group_by(id) %>% filter(cropland > 0) #check for no cropland
+zerocrop <- aei_clean %>% dplyr::group_by(id) %>% filter(cropland == 0) #looks great
+
+
+#extract cell ids
+ids <- unique(nocrop$id)
+
+
+aei_nocrop <- subset(aei_clean, subset = id %in% ids)
+
+
+
+
+p1 <- ggplot(aei_nocrop, aes(x=irrfrac)) + 
+  geom_histogram(bins = 100) + ggtitle("irrfrac w/ cells removed")
+
+p2 <- ggplot(aei_clean, aes(x=irrfrac)) + 
+  geom_histogram(bins = 100) + ggtitle("irrfrac w/ cells included")
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+
+
+
+write_csv(aei_nocrop, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
+```
+
+```{r}
+fullids <- aei_clean %>% dplyr::select(id, lat, lon) %>%  unique()
+nocropids <- aei_nocrop %>% dplyr::select(id, lat, lon) %>%  unique()
+
+library(ggmap)
+library(raster)
+library(ggplot2)
+
+world <- map_data("world") # we already did this, but we can do it again
+
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
+  geom_point(data = fullids, aes(x=lon, y=lat), size=1,shape=".", color = "red") + 
+  geom_point(data = nocropids, aes(x=lon, y=lat), size=1,shape=".", color = "blue")  
+
+ggsave(file = "/Volumes/RachelExternal/Thesis/Data_and_Plots/nocropland.png", dpi = 500, width = 12, height = 8)
+```
+
+
+
+#Sampling grid with min distance
+
+```{r}
+library(sp)
+library(spatialEco)
+
+coordinates(nocropids) <- ~ lon+lat
+
+# Subsample with a 2 degree (or 4 cell) minimum sample spread 
+# length(nocropids) = 43696 * 0.05 = 2185 sample size
+sub.nocropids <- subsample.distance(nocropids, size = 2185, d = 2, echo = F)  
+
+library(ggmap)
+library(raster)
+library(ggplot2)
+
+world <- map_data("world") # we already did this, but we can do it again
+
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
+  geom_point(data = as.data.frame(nocropids), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
+  geom_point(data = as.data.frame(sub.nocropids), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+
+
+# Check distances	
+dm <- spDists(sub.nocropids)
+diag(dm) <- NA
+cat("\n", "Min distance for subsample", min(dm, na.rm=TRUE), "\n")  
+cat("Max distance for subsample", max(dm, na.rm=TRUE), "\n") 
+```
+Extract cell ids
+```{r}
+finalids <- sub.nocropids$id
+
+aei_nocrop_samp <- subset(aei_nocrop, subset = id %in% finalids)
+
+write.csv(aei_nocrop_samp, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocropland_sample.csv")
+
+summary(aei_nocrop_samp)
+```
 
 
 
 # Slimming to 5 year time steps
-
+No need for this if we have decreased the 
 
 ```{r}
-aei_small <- aei_clean %>% 
-  subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+#aei_small <- aei_nocrop %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
 
-write_csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+#write.csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
 
-summary(aei_small)
+#summary(aei_small)
 ```
   
 # Histograms
 
 
 ```{r histdist}
-hist(aei_small$irrfrac, breaks = 50)
+hist(aei_nocrop_samp$irrfrac, breaks = 50)
 ```
 
 
 ```{r histdist}
-hist(aei_small$dist, breaks = 1000)
-plot(aei_small$dist, aei_small$irrfrac)
+hist(aei_nocrop_samp$dist, breaks = 1000)
+plot(aei_nocrop_samp$dist, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r histmedinc}
-hist(aei_small$medinc, breaks = 100000, xlim = c(-1, 1))
-plot(aei_small$medinc, aei_small$irrfrac)
+hist(aei_nocrop_samp$medinc, breaks = 100000, xlim = c(-1, 1))
+plot(aei_nocrop_samp$medinc, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r histpopdens}
-hist(aei_small$popdens, breaks = 100)
-plot(aei_small$popdens, aei_small$irrfrac)
+hist(aei_nocrop_samp$popdens, breaks = 100)
+plot(aei_nocrop_samp$popdens, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r histgdp}
-hist(aei_small$gdppc, breaks = 100)
-plot(aei_small$gdppc, aei_small$irrfrac)
+hist(aei_nocrop_samp$gdppc, breaks = 100)
+plot(aei_nocrop_samp$gdppc, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r histprecip}
-hist(aei_small$precip, breaks = 100)
-plot(aei_small$precip, aei_small$irrfrac)
+hist(aei_nocrop_samp$precip, breaks = 100)
+plot(aei_nocrop_samp$precip, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r histpet}
-hist(aei_small$pet, breaks = 100)
-plot(aei_small$pet, aei_small$irrfrac)
+hist(aei_nocrop_samp$pet, breaks = 100)
+plot(aei_nocrop_samp$pet, aei_nocrop_samp$irrfrac)
 ```
 
 ```{r}
-hist(aei_small$humid, breaks = 100)
-plot(aei_small$humid, aei_small$irrfrac)
+hist(aei_nocrop_samp$humid, breaks = 100)
+plot(aei_nocrop_samp$humid, aei_nocrop_samp$irrfrac)
 ```
 
 
 ```{r histrugg}
-hist(aei_small$rugged, breaks = 100)
-plot(aei_small$rugged, aei_small$irrfrac)
+hist(aei_nocrop_samp$rugged, breaks = 100)
+plot(aei_nocrop_samp$rugged, aei_nocrop_samp$irrfrac)
 ```
 
 
@@ -499,17 +586,17 @@ plot(aei_small$rugged, aei_small$irrfrac)
 
 
 ```{r}
-pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_small) 
+pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_nocrop_samp) 
 ```
 
 ```{r}
-pairs(~irrfrac + precip + humid + pet,data=aei_small) 
+pairs(~irrfrac + precip + humid + pet,data=aei_nocrop_samp) 
 ```
 
 I will be using precip. It fits better conceptually and the relationship here looks stronger than pet. 
 
 ```{r}
-pairs(~irrfrac + dist + medinc + Democracy + DD.regime,data=aei_small) 
+pairs(~irrfrac + dist + medinc + Democracy + DD.regime,data=aei_nocrop_samp) 
 ```
 
 
@@ -533,7 +620,7 @@ centered <-function(y) {
 
 Some variables need to be logged before centering on 0.
 ```{r}
-aei_small %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
+aei_nocrop_samp %>% dplyr::select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
 ```
 Recall the histograms, only rugged and pet had (semi) normal distributions (they were not normally distributed at all but at least both were not seemingly zero inflated like the others). Knowing that pet will not be used and rugged just needs to be scaled, take the log of the other variables. All predictors to be logged contain zeros (or neg, medinc) except for gdp. All of the 0s here represent different things:
 
@@ -545,32 +632,32 @@ Recall the histograms, only rugged and pet had (semi) normal distributions (they
 
 Here are the min non zero values for each.
 ```{r}
-minnz(aei_small$dist)
-minnz(aei_small$popdens)
-minnz(aei_small$precip)
-minnz(aei_small$humid)
+minnz(aei_nocrop_samp$dist)
+minnz(aei_nocrop_samp$popdens)
+minnz(aei_nocrop_samp$precip)
+minnz(aei_nocrop_samp$humid)
 ```
 
 This is controversial, but I will just add 1 to these columns and take the log. In other places, recommendations are made to add half of the minimum non zero value. Although this seems fine, for popdens and precip and humid this would produce negative values on the log scale. The solution of adding 1 is not my most favorite idea but must be done.
 
 ```{r}
 
-aei_small <- 
-  aei_small %>% 
+aei_nocrop_samp <- 
+  aei_nocrop_samp %>% 
   mutate(popdens = popdens + 1, 
          dist = dist + 1,
          precip = precip + 1,
          humid = humid+ 1,
          medinc = medinc + 1)
 
-aei_small %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
+aei_nocrop_samp %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
 
 ```
  the only issue here will be medinc, still with neg values post log transform. 
 
 ```{r}
-aei_small_std <-
-  aei_small %>% 
+aei_nocrop_samp_std <-
+  aei_nocrop_samp %>% 
   mutate(across(c(17:21,25,26, 31), centered)) %>% 
   mutate(across(c(24), normalized)) %>% 
   mutate(across(c(2,3,6,27, 29), as.factor)) %>% 
@@ -579,9 +666,9 @@ aei_small_std <-
          DD.regime,DD.category, Democracy)
 
 
-summary(aei_small_std)
+summary(aei_nocrop_samp_std)
 
-write.csv(aei_small_std, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
+write.csv(aei_nocrop_samp_std, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp_std.csv")
 
 ```
 
