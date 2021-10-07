@@ -1,6 +1,6 @@
 
 
-Packages
+# Packages
 
 ```{r}
 library(dplyr)
@@ -12,6 +12,15 @@ library(GGally)
 library(parallel)
 library(kableExtra)
 library(rethinking)
+library(devtools)
+#install_github('mcooper/moranfast')
+library(moranfast)
+library(Rcpp)
+library(sp)
+library(geoR)
+library(gstat)
+library(agrmt)
+
 ```
 
 
@@ -24,77 +33,25 @@ library(rethinking)
 # Data
 
 ```{r load_data}
-aei_small <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
-aei_small_std <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small_std.csv")
-
-
-aei_small_std <- aei_small_std %>% 
-  mutate(across(c(4:8, 20:22), as.factor))
-
-
-#for ease of life
-aei_smaller <- aei_small %>% sample_n(5000) #%>% filter(ISO %in% sample(levels(ISO),3))
+aei_cropclean <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
+aei_cropclean_sample <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocropland_sample.csv")
 ```
 
 ```{r morani}
-grid <- aei_small %>% subset(yearcount == 45) %>% select(id, lat, lon, irrfrac) %>% unique() #of the year 2005
-write.csv(grid, "/Volumes/RachelExternal/Thesis/Data_and_Plots/latlonirrfrac.csv")
-
-
-library(devtools)
-install_github('mcooper/moranfast')
-
-library(moranfast)
-
-install.packages('Rcpp')
-library(Rcpp)
-
-grid <- read.table("/Volumes/RachelExternal/Thesis/Data_and_Plots/latlonirrfrac.csv", sep=",", header=T)
-moranfast(grid$irrfrac, grid$lon, grid$lat)
-
-
-
+india <- aei_cropclean %>% subset(yearcount == 45 & ISO == "IND") %>% dplyr::select(id, lat, lon, irrfrac) #india for the year 2005
+moranfast(india$irrfrac, india$lon, india$lat)
 ```
 
 ```{r}
-# load the sp library
-library(sp)
-library(geoR)
-library(gstat)
-
-# convert simple data frame into a spatial data frame object
-coordinates(grid)= ~ lon+lat
-
-
-# create a bubble plot with the random values
-bubble(grid, zcol='irrfrac', fill=TRUE, do.sqrt=FALSE, maxsize=3)
-
-
-TheVariogram=variogram(irrfrac~1, data=grid)
-plot(TheVariogram)
+coordinates(india)= ~ lon+lat
+bubble(india, zcol='irrfrac', fill=TRUE, do.sqrt=FALSE, maxsize=3) #check the bubble
+# TheVariogram=variogram(irrfrac~1, data=india)
+# plot(TheVariogram)
 ```
 
-
-
-```{r sampling}
-samplegrid <- aei_small %>% select(lat, lon, id) %>% unique()
-samplegrid <- reshape(samplegrid, idvar = "lat", timevar = "lon", v.names = "id", direction = "wide")
-samplegrid <- samplegrid[order(-samplegrid$lat),]
-
-```
-
+# Standardization
 
 ```{r}
-#perparing to log transform
-aei_smaller <- 
-  aei_smaller %>% 
-  mutate(popdens = popdens + 1, 
-         dist = dist + 1,
-         precip = precip + 1,
-         humid = humid + 1,
-         medinc = medinc + 1)
-
-
 normalized<-function(y) {
   x<-y[!is.na(y)]
   x<-(x - min(x)) / (max(x) - min(x))
@@ -108,34 +65,61 @@ centered <-function(y) {
   y[!is.na(y)]<-x
   return(y)
 }
+```
 
+Some variables need to be logged before centering on 0. Check out the predictors.
+```{r}
+aei_cropclean_sample %>% dplyr::select(precip, humid,  dist, medinc, rugged, gdppc, popdens) %>% summary()
+```
+Recall the histograms, only rugged and pet had (semi) normal distributions (they were not normally distributed at all but at least both were not seemingly zero inflated like the others). Knowing that pet will not be used and rugged just needs to be scaled, take the log of the other variables. All predictors to be logged contain zeros (or neg, medinc) except for gdp. All of the 0s here represent different things:
 
-aei_smaller_std <-
-  aei_smaller %>% 
-  mutate(across(c(17:21,25,26,31), centered)) %>% 
-  mutate(across(c(24), normalized)) %>% 
-  mutate(across(c(2,3,6,27,29), as.factor)) %>% 
+- dist, cells with irrigation have a value of 0. cells with no irrigation have a dist value greater than 22.83487km.
+- popdens, here 0 means 0. 
+- precip, here 0 means 0 as well. 
+- humid, same as precip.
+- medinc, this one is a conundrum, as there are are negative median yield increases
+
+Here are the min non zero values for each.
+```{r}
+minnz(aei_cropclean_sample$dist)
+minnz(aei_cropclean_sample$popdens)
+minnz(aei_cropclean_sample$precip)
+minnz(aei_cropclean_sample$humid)
+```
+
+This is controversial, but I will just add 1 to these columns and take the log. In other places, recommendations are made to add half of the minimum non zero value. Although this seems fine, for popdens and precip and humid this would produce negative values on the log scale. The solution of adding 1 is not my most favorite idea but must be done.
+
+```{r}
+
+aei_cropclean_sample <- 
+  aei_cropclean_sample %>% 
+  mutate(popdens = popdens + 1, 
+         dist = dist + 1,
+         precip = precip + 1,
+         humid = humid+ 1,
+         medinc = medinc + 1)
+
+aei_cropclean_sample %>% select(precip, humid, popdens, gdppc, dist, medinc, rugged) %>% summary()
+
+```
+ the only issue here will be medinc, still with neg values post log transform. 
+
+```{r}
+aei_cropclean_sample_std <-
+  aei_cropclean_sample %>% 
+  mutate(across(c(17:21,25:26, 31), centered)) %>% 
+  mutate(across(c(2,3,6,27, 29), as.factor)) %>% 
   select(lat, lon, id, ISO, Countryname, six_regions, eight_regions, yearcount, irrfrac,
          dist, medinc, precip, humid, rugged, crl_yld, ag_gdp, popdens, gdppc, 
          DD.regime,DD.category, Democracy)
 
 
-summary(aei_smaller_std)
+summary(aei_cropclean_sample_std)
+
+write.csv(aei_cropclean_sample_std, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_cropclean_sample_std.csv")
+
 ```
 
-
-# `brm()` settings
-```{r brmsettings}
-df = aei_smaller_std
-ncore = 2 #detectCores()
-options(mc.cores = parallel::detectCores())
-niter = 500
-nchain = 2
-seed = 2
-
-#saving location
-folder = "/Volumes/RachelExternal/Thesis/Thesis/final/fits/"
-```
 
 
 
@@ -244,6 +228,20 @@ tibble(`Proper Normal(0, 1)` = rnorm(10000, 0, 1)) %>%
 
 
 
+# `brm()` settings
+```{r brmsettings}
+df = aei_cropclean_sample
+ncore = 4 #detectCores()
+options(mc.cores = parallel::detectCores())
+niter = 2000
+nchain = 4
+seed = 2
+
+#saving location
+folder = "/Volumes/RachelExternal/Thesis/Thesis/final/fits/"
+```
+
+
 
 # Individual Country Change Model
 
@@ -329,7 +327,7 @@ uncond_means_ISO <-
       seed = ncore,
       threads = threading(2),
       backend = "cmdstanr",
-      file = paste0(folder,"ISO_simple_uncondmeans_5000.Rds"))
+      file = paste0(folder,"ISO_simple_uncondmeans.Rds"))
 })
 ```
 
@@ -408,7 +406,7 @@ uncond_growth_ISO <-
       backend = "cmdstanr",
       inits = "0",
       seed = seed,
-      file = paste0(folder,"ISO_simple_uncondgrowth_5000.Rds"))
+      file = paste0(folder,"ISO_simple_uncondgrowth.Rds"))
 })
 ```
 
