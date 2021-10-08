@@ -356,7 +356,11 @@ posterior_samples(uncond_means_ISO) %>%
 
 
 ```{r}
-pp_check(uncond_means_ISO, xlim = c(0, 0.1))
+pp_check(uncond_means_ISO)
+```
+
+```{r}
+kfold(uncond_means_ISO)
 ```
 
 
@@ -436,7 +440,8 @@ conditional_effects(uncond_growth_ISO)
 ```
 
 ```{r}
-pp_check(uncond_growth_ISO)
+pp_check(uncond_means_ISO) +
+  xlim(0, 0.2)
 ```
 
 ## Full Simple model ISO

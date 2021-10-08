@@ -481,24 +481,35 @@ ggsave(file = "/Volumes/RachelExternal/Thesis/Data_and_Plots/nocropland.png", dp
 
 ```{r}
 library(sp)
+library(rgeos)
+library(geosphere)
 library(spatialEco)
 
-coordinates(nocropids) <- ~ lon+lat
 
-# Subsample with a 2 degree (or 4 cell) minimum sample spread 
-# length(nocropids) = 43696 * 0.05 = 2185 sample size
-sub.nocropids <- subsample.distance(nocropids, size = 2185, d = 2, echo = F)  
+coordinates(nocropids) <- ~lon+lat
+#specifying lon lat projection
+proj4string(nocropids) <- CRS("+proj=longlat +datum=WGS84") 
+#converting to UTM (x, y) projection
+res <- spTransform(nocropids, CRS("+proj=utm +ellps=WGS84 +datum=WGS84 +units=km" )) 
+
+#sampling with a min dist of 3 cells between @equator 0.5deg cell is 55km
+#3 cells = 165 km of min dist.
+sub.nocropids <- subsample.distance(res, size = 2185, d = 165, echo = F)  
 
 library(ggmap)
 library(raster)
 library(ggplot2)
 
+#flip back to lat lon just to plot
+sub.nocropids2 <- spTransform(sub.nocropids, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
+
 world <- map_data("world") # we already did this, but we can do it again
 
 ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
   geom_point(data = as.data.frame(nocropids), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
-  geom_point(data = as.data.frame(sub.nocropids), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+  geom_point(data = as.data.frame(sub.nocropids2), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
 
+ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/sampled_ids.png")
 
 # Check distances	
 dm <- spDists(sub.nocropids)
@@ -506,6 +517,8 @@ diag(dm) <- NA
 cat("\n", "Min distance for subsample", min(dm, na.rm=TRUE), "\n")  
 cat("Max distance for subsample", max(dm, na.rm=TRUE), "\n") 
 ```
+
+
 Extract cell ids
 ```{r}
 finalids <- sub.nocropids$id
@@ -523,11 +536,11 @@ summary(aei_nocrop_samp)
 No need for this if we have decreased the 
 
 ```{r}
-#aei_small <- aei_nocrop %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+aei_small <- aei_nocrop %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
 
-#write.csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+write.csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
 
-#summary(aei_small)
+summary(aei_small)
 ```
   
 # Histograms
