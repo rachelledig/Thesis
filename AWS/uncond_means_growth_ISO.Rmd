@@ -1,0 +1,160 @@
+# Packages
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(brms)
+library(cmdstanr)
+library(purrr)
+library(ggplot2)
+library(GGally)
+library(parallel)
+library(Rcpp)
+library(job)
+
+```
+
+
+
+
+
+# `brm()` settings
+```{r brmsettings}
+df = aei_nocrop_samp165aa_5yr
+df2 = aei_nocrop_samp165bb_5yr
+df3 = aei_nocrop_samp100aa_5yr
+df4 = aei_nocrop_samp100bb_5yr
+ncore = detectCores()
+options(mc.cores = parallel::detectCores())
+niter = 2000
+nchain = 4
+seed = 2
+
+#saving location
+folder = "/home/rstudio/"
+```
+
+
+
+
+
+
+```{r}
+uncond_means_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd")) #stdev parameters
+```
+
+
+```{r}
+job::job({
+uncond_means_165aa <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + (1|ISO/id),
+                   zi ~ 1 + (1|ISO/id)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = uncond_means_prior_ISO,
+      control = list(adapt_delta = 0.99, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      seed = ncore,
+      threads = threading(4),
+      backend = "cmdstanr",
+      file = paste0(folder,"ISO_simple_uncondmeans165aa.Rds"))
+})
+```
+
+
+```{r}
+job::job({
+uncond_means_165bb <- update(uncond_means_165aa, newdata = df2, file = paste0(folder, "ISO_simple_uncondmeans165bb.Rds"))})
+job::job({
+uncond_means_100aa <- update(uncond_means_165aa, newdata = df3, file = paste0(folder, "ISO_simple_uncondmeans100aa.Rds"))})
+job::job({
+uncond_means_100bb <- update(uncond_means_165aa, newdata = df4, file = paste0(folder, "ISO_simple_uncondmeans100bb.Rds"))})
+```
+
+
+Using default priors here. 
+```{r}
+uncond_growth_prior_ISO <- 
+  c(set_prior("student_t(3, 0, 2.5)", class = "Intercept"), #Global Intercept
+    set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+    set_prior("logistic(0, 1)", class = "Intercept", dpar = "zi" ), #zi Intercept
+    set_prior("student_t(3, 0, 2.5)", class = "sd"), #stdev parameters
+    set_prior("lkj(2)", class = "cor"), #correlation prior
+    set_prior("normal(0,1)", class = "b")) #slope prior 
+```
+
+
+```{r}
+job::job({
+  uncond_growth_165aa <-
+  brm(data = df,
+      formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO/id),
+                   zi ~ 1 + yearcount + (1 + yearcount|ISO/id)),
+      family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = uncond_growth_prior_ISO,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      threads = threading(4),
+      backend = "cmdstanr",
+      inits = "0",
+      seed = seed,
+      file = paste0(folder,"ISO_simple_uncondgrowth165aa.Rds"))
+})
+```
+
+```{r}
+job::job({uncond_growth_165bb <- update(uncond_growth_165aa, newdata = df2, file = paste0(folder, "ISO_simple_uncondgrowth165bb.Rds"), backend = 'cmdstanr')
+})
+job::job({uncond_growth_100aa <- update(uncond_growth_165aa, newdata = df3, file = paste0(folder, "ISO_simple_uncondgrowth100aa.Rds"), backend = 'cmdstanr')
+})
+job::job({uncond_growth_100bb <- update(uncond_growth_165aa, newdata = df4, file = paste0(folder, "ISO_simple_uncondgrowth100bb.Rds"), backend = 'cmdstanr')
+})
+```
+
+
+
+```{r}
+kfold_uncond_means_165aa <- kfold(uncond_means_165aa)
+kfold_uncond_means_165bb <- kfold(uncond_means_165bb)
+kfold_uncond_means_100aa <- kfold(uncond_means_100aa)
+kfold_uncond_means_100bb <- kfold(uncond_means_100bb)
+
+
+saveRDS(kfold_uncond_means_165aa, file = paste0(folder, "kfold_uncond_means_165aa.rds"))
+saveRDS(kfold_uncond_means_165bb, file = paste0(folder, "kfold_uncond_means_165bb.rds"))
+saveRDS(kfold_uncond_means_100aa, file = paste0(folder, "kfold_uncond_means_100aa.rds"))
+saveRDS(kfold_uncond_means_100bb, file = paste0(folder, "kfold_uncond_means_100bb.rds"))
+```
+
+
+
+```{r}
+kfold_uncond_growth_165aa <- kfold(uncond_growth_165aa)
+kfold_uncond_growth_165bb <- kfold(uncond_growth_165bb)
+kfold_uncond_growth_100aa <- kfold(uncond_growth_100aa)
+kfold_uncond_growth_100bb <- kfold(uncond_growth_100bb)
+
+saveRDS(kfold_uncond_growth_165aa, file = paste0(folder, "kfold_uncond_growth_165aa.rds"))
+saveRDS(kfold_uncond_growth_165bb, file = paste0(folder, "kfold_uncond_growth_165bb.rds"))
+saveRDS(kfold_uncond_growth_100aa, file = paste0(folder, "kfold_uncond_growth_100aa.rds"))
+saveRDS(kfold_uncond_growth_100bb, file = paste0(folder, "kfold_uncond_growth_100bb.rds"))
+  
+        
+```
+

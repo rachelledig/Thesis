@@ -1,0 +1,342 @@
+
+
+
+
+
+# Packages
+```{r}
+library(future)
+library(brms)
+library(tidyverse)
+
+```
+
+#Data
+```{r}
+data1 <- aei_nocrop_samp165aa_5yr
+data2 <- aei_nocrop_samp100aa_5yr
+```
+
+#Standardization
+```{r}
+centered <-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - mean(x)) / (sd(x)*2)
+  y[!is.na(y)]<-x
+  return(y)
+}
+
+
+data1 <-
+  aei_nocrop_samp165aa_5yr %>% 
+  mutate(across(c(13:20), centered)) %>% 
+  mutate(across(c(1:3,6,7,21,22), as.factor)) 
+
+# data2 <-
+#   aei_nocrop_samp165aa_5yr %>% 
+#   mutate(across(c(13:20), centered)) %>% 
+#   mutate(across(c(1:3,6,7,21,22), as.factor)) 
+
+```
+
+
+```{r}
+plan(
+  list(
+    tweak(multisession, workers = 2),
+    tweak(multisession, workers = 2)
+  )
+)
+```
+
+#Priors
+```{r f1 prior}
+get_prior(bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + DD.regime,
+                   zi ~ 0 + Intercept + rugged + precip + DD.regime),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    data = aei_nocrop_samp165aa_5yr)
+
+f1prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("normal(0,1)", class = "b"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"))
+```
+```{r f2 prior}
+get_prior(bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + gdppc + popdens,
+                   zi ~ 0 + Intercept + precip + dist + gdppc + popdens),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+f2prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("normal(0,1)", class = "b"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"))
+```
+
+```{r b1 prior}
+get_prior(bf(irrfrac ~ 0 + Intercept + (0 + Intercept | ISO/id),
+                   zi ~ 0 + Intercept + (0 + Intercept | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+b1prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("student_t(3, 0, 2.5)", class = "sd", dpar = "zi"), #stdev parameters
+             set_prior("student_t(3, 0, 2.5)", class = "sd"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"),
+             set_prior("normal(0,1)", class = "b"))
+```
+
+```{r b2 prior}
+get_prior(
+   bf(irrfrac ~ 0 + Intercept + yearcount + (0 + Intercept + yearcount | ISO/id),
+                   zi ~ 0 + Intercept + yearcount + (0 + Intercept + yearcount | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+b2prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("student_t(3, 0, 2.5)", class = "sd", dpar = "zi"), #stdev parameters
+             set_prior("student_t(3, 0, 2.5)", class = "sd"),
+             set_prior("lkj(2)", class = "cor"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"),
+             set_prior("normal(0,1)", class = "b"))
+```
+```{r b3 prior}
+
+get_prior(bf(irrfrac ~ 0 + Intercept + yearcount:DD.regime + yearcount + DD.regime + (0 + Intercept + yearcount | ISO/id),
+                   zi ~ 0 + Intercept + yearcount:DD.regime + yearcount + DD.regime + (0 + Intercept + yearcount | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+
+b3prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("student_t(3, 0, 2.5)", class = "sd", dpar = "zi"), #stdev parameters
+             set_prior("student_t(3, 0, 2.5)", class = "sd"),
+             set_prior("lkj(2)", class = "cor"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"),
+             set_prior("normal(0,1)", class = "b"))
+```
+
+
+```{r f3 prior}
+get_prior(bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + DD.regime + (0 + yearcount + precip + medinc + rugged + DD.regime|ISO/id),
+                   zi ~ 0 + Intercept + rugged + precip + DD.regime + (0 + rugged + precip + DD.regime|ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+f3prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("student_t(3, 0, 2.5)", class = "sd", dpar = "zi"), #stdev parameters
+             set_prior("student_t(3, 0, 2.5)", class = "sd"),
+             set_prior("lkj(2)", class = "cor"),  
+             set_prior("normal(0,1)", class = "b", dpar = "zi"),
+             set_prior("normal(0,1)", class = "b"))
+```
+
+```{r f4 prior}
+get_prior(bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + gdppc + popdens + (1 + yearcount + precip + medinc + rugged + gdppc + popdens|ISO/id),
+                   zi ~ 0 + Intercept + rugged + precip + dist + gdppc + popdens + (1 + rugged + precip + dist + gdppc + popdens|ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    data = aei_nocrop_samp165aa_5yr)
+
+f4prior <- c(set_prior("gamma(0.01, 0.01)", class = "phi"), #phi Intercept with identity link
+             set_prior("student_t(3, 0, 2.5)", class = "sd", dpar = "zi"), #stdev parameters
+             set_prior("student_t(3, 0, 2.5)", class = "sd"),
+             set_prior("lkj(2)", class = "cor"), 
+             set_prior("normal(0,1)", class = "b", dpar = "zi"),
+             set_prior("normal(0,1)", class = "b"))
+```
+
+
+# `brm()` settings
+```{r brmsettings}
+
+ncore = 4 #detectCores()
+options(mc.cores = parallel::detectCores())
+niter = 2000
+nchain = 4
+seed = 2
+
+#saving location
+folder = "/Volumes/RachelExternal/Thesis/Thesis/final/fits/"
+```
+
+
+#Function
+```{r run_my_models_funct}
+run_my_models <- function(data, name) {
+  
+  #Understanding Democracy
+  f1 <- brm(data = data,
+    bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + DD.regime,
+                   zi ~ 0 + Intercept + rugged + precip + DD.regime),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = f1prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder, name, "fixed_effects_demo.Rds")
+  )
+  
+  #Understanding effects of democracy on other variables
+  f2 <- brm(data = data,
+    bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + gdppc + popdens,
+                   zi ~ 0 + Intercept + rugged + precip + dist + gdppc + popdens),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = f2prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,name,"fixed_effects_nodemo.Rds")
+  )
+  #uncondmeans
+  b1 <- brm(data = data,
+    bf(irrfrac ~ 0 + Intercept + 
+         (0 + Intercept | ISO/id),
+                   zi ~ 0 + Intercept + 
+         (0 + Intercept | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = b1prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,name,"uncondmeans.Rds")
+  )
+  #unconditional growth
+  b2 <- brm(data = data,
+   bf(irrfrac ~ 0 + Intercept + yearcount + 
+        (0 + Intercept + yearcount | ISO/id),
+                   zi ~ 0 + Intercept + yearcount + 
+        (0 + Intercept + yearcount | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = b2prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,name,"uncondgrowth.Rds")
+  )
+  #composite
+  b3 <- brm(data = data,
+   bf(irrfrac ~ 0 + Intercept + yearcount:DD.regime + yearcount + DD.regime + 
+        (0 + Intercept + yearcount | ISO/id),
+                   zi ~ 0 + Intercept + yearcount:DD.regime + yearcount + DD.regime + 
+        (0 + Intercept + yearcount | ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = b3prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,name,"composite.Rds")
+  )
+  #varying slopes demo
+  f3 <- brm(data = data,
+    bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + DD.regime + 
+         (0+ Intercept + yearcount + precip + medinc + rugged + DD.regime|ISO/id),
+                   zi ~ 0 + Intercept + rugged + precip + DD.regime + 
+         (0 + Intercept + rugged + precip + DD.regime|ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+      prior = f3prior,
+        control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,"varying_effects_demo.Rds")
+  )
+  #varying slopes no demo
+  f4 <- brm(data = data,
+    bf(irrfrac ~ 0 + Intercept + yearcount + precip + medinc + rugged + gdppc + popdens + 
+         (0 + Intercept+ yearcount + precip + medinc + rugged + gdppc + popdens|ISO/id),
+                   zi ~ 0 + Intercept + rugged + precip + dist + gdppc + popdens + 
+         (0 + Intercept + rugged + precip + dist + gdppc + popdens|ISO/id)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"),
+    prior = f4prior,
+    control = list(adapt_delta = 0.95, 
+                       max_treedepth=11),
+      sample_prior = "yes",
+      cores = ncore, 
+      iter = niter, 
+      chains = nchain,
+      inits = "0",
+      future = T,
+      seed = seed,
+      file = paste0(folder,name,"varying_effects_nodemo.Rds")
+  )
+  tibble(
+    dataset = name, 
+    model = 1:7,
+    m = list(f1, f2, b1, b2, b3, f3, f4)
+  )
+}
+```
+
+
+#Run Models
+```{r}
+fits1 %<-% run_my_models(data=data1, name="data1")
+fits2 %<-% run_my_models(data=data2, name="data2")
+
+```
+
+```{r}
+all_models <- bind_rows(fits1, fits2)
+```
+

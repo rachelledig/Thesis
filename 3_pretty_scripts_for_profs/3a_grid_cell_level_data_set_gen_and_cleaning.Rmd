@@ -1,6 +1,20 @@
 ---
 bibliography: "/Volumes/RachelExternal/Thesis/Thesis/references.bib"
 ---
+```{r packages}
+library(tidyverse)
+library(dplyr)
+library(agrmt)
+library(devtools)
+#install_github('mcooper/moranfast')
+library(moranfast)
+library(Rcpp)
+library(sp)
+library(geoR)
+library(gstat)
+library(agrmt)
+```
+
 # Data
 
 Input data from Fabian and LPJML
@@ -102,11 +116,7 @@ pet_data.RData contains
 
 -   total_PET_allcrops [1:67420, 1:12, 1:105]: Monthly Potential Evapotranspiration (mm/month) for each gridcell and year under synthetic allcrops conditions (not sure if this is at all helpful)
 
-```{r packages}
-library(tidyverse)
-library(dplyr)
-library(agrmt)
-```
+
 
 
 # Dataframe Assembly
@@ -123,7 +133,7 @@ meta$id <- seq(1, 67420, by =1)
 
 
 aei <- meta %>% 
-  select(Countryname, ISO, id) %>% 
+  dplyr::select(Countryname, ISO, id) %>% 
   right_join(., aei, by = "id")
 rm(meta)
 
@@ -136,16 +146,16 @@ Adding some extra meta data here for further analysis down the road.
 extrameta <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
 
 extrameta %>% 
-  select(ISO, name) %>% 
+  dplyr::select(ISO, name) %>% 
   anti_join(aei, ., by = "ISO") %>% 
-  select(ISO, Countryname) %>% 
+  dplyr::select(ISO, Countryname) %>% 
   unique()
 #ok 44 countries wont have this extra metadata. majority are island nations, thats ok. I also will take them out later when I do a cut based on number of cells per country.
 
 
 aei <- 
   extrameta %>%
-  select(-name, -Longitude, -Latitude) %>% 
+  dplyr::select(-name, -Longitude, -Latitude) %>% 
     mutate_if(is.character,as.factor) %>% 
   right_join(., aei, by = "ISO")
 
@@ -163,7 +173,7 @@ landfr$id <- seq(1, 67420, by =1)
 
 aei <- 
   landfr %>%
-  select(-name) %>% 
+  dplyr::select(-name) %>% 
   rename(landfrac = value) %>% 
   left_join(., aei, by = "id")
 
@@ -266,7 +276,7 @@ colnames(pop) <- seq(1901, 2011, by = 1)
 pop$id <- seq(1, 67420, by =1)  
 
 pop <- pop %>% 
-  select(-c(`2006`:`2011`)) %>% 
+  dplyr::select(-c(`2006`:`2011`)) %>% 
   pivot_longer(-id, names_to = "years", values_to = "popdens")
 
 aei <- aei %>% 
@@ -342,7 +352,7 @@ Now add additional predictors such as
 ```{r ruggedness}
 library(rethinking)
 data("rugged")
-aei <- rugged %>% select(c("isocode", "rugged")) %>% 
+aei <- rugged %>% dplyr::select(c("isocode", "rugged")) %>% 
   rename(ISO = isocode) %>% 
   left_join(aei, ., by = c("ISO"))
 
@@ -352,17 +362,17 @@ rm(rugged)
 ```{r cerealyields}
 library(wbstats)
 aei <- wb_data("AG.YLD.CREL.KG", start_date = 1960, end_date = 2005) %>% 
-  select(iso3c, date, AG.YLD.CREL.KG) %>% 
+  dplyr::select(iso3c, date, AG.YLD.CREL.KG) %>% 
   rename(ISO = iso3c, years = date, crl_yld = AG.YLD.CREL.KG) %>% 
-  select(ISO, years, crl_yld) %>% 
+  dplyr::select(ISO, years, crl_yld) %>% 
   left_join(aei, ., by = c("ISO", "years")) 
 ```
 
 ```{r perc_ag_gdp}
 aei <- wb_data("NV.AGR.TOTL.ZS", start_date = 1960, end_date = 2005) %>% 
-  select(iso3c, date, NV.AGR.TOTL.ZS) %>% 
+  dplyr::select(iso3c, date, NV.AGR.TOTL.ZS) %>% 
   rename(ISO = iso3c, years = date, ag_gdp = NV.AGR.TOTL.ZS) %>% 
-  select(ISO, years, ag_gdp) %>% 
+  dplyr::select(ISO, years, ag_gdp) %>% 
   left_join(aei, ., by = c("ISO", "years")) 
 ```
 
@@ -370,10 +380,13 @@ Democracy
 
 ```{r democracy}
 aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Bjørnskov-Rode-Democracy-data.csv") %>% 
-  select(-c(6:12,14:19,21:22,24:51)) %>% 
+  dplyr::select(-c(6:12,14:19,21:22,24:51)) %>% 
   rename(ISO = country.isocode, years = year) %>% 
-  select(ISO, years, DD.regime, DD.category, Democracy) %>% 
+  dplyr::select(ISO, years, DD.regime, DD.category, Democracy) %>% 
   mutate(DD.regime = replace_na(DD.regime, 6)) %>% 
+  mutate(ISO=replace(ISO, ISO=="GER", "DEU"),
+         ISO=replace(ISO, ISO=="ROM", "ROU"), 
+         ISO=replace(ISO, ISO=="ZAR", "COD")) %>% 
   left_join(aei, ., by = c("ISO", "years")) 
   
  
@@ -404,43 +417,20 @@ write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_full.csv")
 ```
 
 
-# Removal of countries with < 5 cells
-
-Finally, remove countries that have 5 or less cells.
-
-```{r islandtchau!}
-counts <- 
-  fullCountryData %>% 
-  group_by(ISO) %>% 
-  count() %>% 
-  subset(n <= 5)  %>% 
-  select(ISO) 
-
-counts <- as.character(counts$ISO)
-
-#for fun
-`%notin%` <- Negate(`%in%`)
-
-aei_clean <- subset(aei, ISO %notin% counts)
-
-summary(aei_clean)
-
-write_csv(aei_clean, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_clean.csv")
-```
 
 # Removing cells with 0 cropland
 
 ```{r}
 
-nocrop <- aei_clean %>% dplyr::group_by(id) %>% filter(cropland > 0) #check for no cropland
-zerocrop <- aei_clean %>% dplyr::group_by(id) %>% filter(cropland == 0) #looks great
+nocrop <- aei %>% dplyr::group_by(id) %>% filter(cropland > 0) #check for no cropland
+zerocrop <- aei %>% dplyr::group_by(id) %>% filter(cropland == 0) #looks great
 
 
 #extract cell ids
 ids <- unique(nocrop$id)
 
 
-aei_nocrop <- subset(aei_clean, subset = id %in% ids)
+aei_nocrop <- subset(aei, subset = id %in% ids)
 
 
 
@@ -448,25 +438,27 @@ aei_nocrop <- subset(aei_clean, subset = id %in% ids)
 p1 <- ggplot(aei_nocrop, aes(x=irrfrac)) + 
   geom_histogram(bins = 100) + ggtitle("irrfrac w/ cells removed")
 
-p2 <- ggplot(aei_clean, aes(x=irrfrac)) + 
+p2 <- ggplot(aei, aes(x=irrfrac)) + 
   geom_histogram(bins = 100) + ggtitle("irrfrac w/ cells included")
 
 gridExtra::grid.arrange(p1, p2, ncol = 2)
 
 
 
-write_csv(aei_nocrop, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
+write.csv(aei_nocrop, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
 ```
 
+
+
 ```{r}
-fullids <- aei_clean %>% dplyr::select(id, lat, lon) %>%  unique()
+fullids <- aei %>% dplyr::select(id, lat, lon) %>%  unique()
 nocropids <- aei_nocrop %>% dplyr::select(id, lat, lon) %>%  unique()
 
 library(ggmap)
 library(raster)
 library(ggplot2)
 
-world <- map_data("world") # we already did this, but we can do it again
+world <- map_data("world") 
 
 ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
   geom_point(data = fullids, aes(x=lon, y=lat), size=1,shape=".", color = "red") + 
@@ -475,9 +467,45 @@ ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill 
 ggsave(file = "/Volumes/RachelExternal/Thesis/Data_and_Plots/nocropland.png", dpi = 500, width = 12, height = 8)
 ```
 
+# Moran's I
+
+```{r morani}
+india <- aei_nocrop %>% subset(yearcount == 45 & ISO == "IND") %>% dplyr::select(id, lat, lon, irrfrac) #india for the year 2005
+moranfast(india$irrfrac, india$lon, india$lat)
+```
+
+```{r}
+coordinates(india)= ~ lon+lat
+bubble(india, zcol='irrfrac', fill=TRUE, do.sqrt=FALSE, maxsize=3) #check the bubble
+# TheVariogram=variogram(irrfrac~1, data=india)
+# plot(TheVariogram)
+```
 
 
-#Sampling grid with min distance
+
+
+#NAs 
+
+Check for NA data in main predictors
+```{r}
+aei_nocrop %>% subset(., is.na(DD.regime)) %>% dplyr::select(Countryname) %>% unique()
+aei_nocrop %>% subset(., is.na(gdppc)) %>% dplyr::select(Countryname) %>% unique()
+aei_nocrop %>% subset(., is.na(rugged)) %>% dplyr::select(Countryname) %>% unique()
+```
+
+There is a lot of NAs in a couple different predictors. Brms doesn't allow for NAs. I will remove them.
+
+```{r}
+aei_no_nas <- 
+  aei_nocrop %>% 
+  dplyr::select(id, ISO, Countryname, lon, lat, six_regions, eight_regions, years, yearcount, irrfrac, irrcrop, cropland, dist, medinc, precip, pet, humid, rugged, popdens, gdppc, DD.regime, DD.category) %>% 
+  drop_na(rugged, gdppc, DD.regime)
+
+nonas <- aei_no_nas %>% dplyr::select(id, lat, lon) %>%  unique()
+```
+
+
+#Sampling grid with min distance to reduce autocorrelation
 
 ```{r}
 library(sp)
@@ -486,30 +514,54 @@ library(geosphere)
 library(spatialEco)
 
 
-coordinates(nocropids) <- ~lon+lat
+coordinates(nonas) <- ~lon+lat
 #specifying lon lat projection
-proj4string(nocropids) <- CRS("+proj=longlat +datum=WGS84") 
+proj4string(nonas) <- CRS("+proj=longlat +datum=WGS84") 
 #converting to UTM (x, y) projection
-res <- spTransform(nocropids, CRS("+proj=utm +ellps=WGS84 +datum=WGS84 +units=km" )) 
+res <- spTransform(nonas, CRS("+proj=utm +ellps=WGS84 +datum=WGS84 +units=km" )) 
 
 #sampling with a min dist of 3 cells between @equator 0.5deg cell is 55km
 #3 cells = 165 km of min dist.
-sub.nocropids <- subsample.distance(res, size = 2185, d = 165, echo = F)  
+sub.nocropids165a <- subsample.distance(res, size = 2185, d = 165, echo = T)  
+sub.nocropids165b <- subsample.distance(res, size = 2185, d = 165, echo = T )  
+sub.nocropids100a <- subsample.distance(res, size = 2185, d = 100, echo = T)  
+sub.nocropids100b <- subsample.distance(res, size = 2185, d = 100, echo = T)  
 
 library(ggmap)
 library(raster)
 library(ggplot2)
 
 #flip back to lat lon just to plot
-sub.nocropids2 <- spTransform(sub.nocropids, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
+sub.nocropids165aa <- spTransform(sub.nocropids165a, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
+sub.nocropids165bb <- spTransform(sub.nocropids165b, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
+sub.nocropids100aa <- spTransform(sub.nocropids100a, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
+sub.nocropids100bb <- spTransform(sub.nocropids100b, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84" ))
 
 world <- map_data("world") # we already did this, but we can do it again
 
 ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
-  geom_point(data = as.data.frame(nocropids), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
-  geom_point(data = as.data.frame(sub.nocropids2), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+  geom_point(data = as.data.frame(nonas), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
+  geom_point(data = as.data.frame(sub.nocropids165aa), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
 
-ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/sampled_ids.png")
+ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/subnocropids165aa.png")
+
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
+  geom_point(data = as.data.frame(nonas), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
+  geom_point(data = as.data.frame(sub.nocropids165bb), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+
+ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/subnocropids165bb.png")
+
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
+  geom_point(data = as.data.frame(nonas), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
+  geom_point(data = as.data.frame(sub.nocropids100aa), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+
+ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/sub.nocropids100aa.png")
+
+ggplot() + geom_polygon(data = world, aes(x=long, y = lat, group = group), fill = NA, color = "black") + 
+  geom_point(data = as.data.frame(nonas), aes(x=lon, y=lat), size=3,shape=".", color = "red") + 
+  geom_point(data = as.data.frame(sub.nocropids100bb), aes(x=lon, y=lat), size=3,shape=".", color = "blue") 
+
+ggsave(plot = last_plot(), dpi = 300, width = 10, height = 6.6, filename = "/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/sub.nocropids100bb.png")
 
 # Check distances	
 dm <- spDists(sub.nocropids)
@@ -521,13 +573,26 @@ cat("Max distance for subsample", max(dm, na.rm=TRUE), "\n")
 
 Extract cell ids
 ```{r}
-finalids <- sub.nocropids$id
+finalids165aa <- sub.nocropids165aa$id
+finalids165bb <- sub.nocropids165bb$id
+finalids100aa <- sub.nocropids100aa$id
+finalids100bb <- sub.nocropids100bb$id
 
-aei_nocrop_samp <- subset(aei_nocrop, subset = id %in% finalids)
+aei_nocrop_samp165aa <- subset(aei_no_nas, subset = id %in% finalids165aa)
+aei_nocrop_samp165bb <- subset(aei_no_nas, subset = id %in% finalids165bb)
+aei_nocrop_samp100aa <- subset(aei_no_nas, subset = id %in% finalids100aa)
+aei_nocrop_samp100bb <- subset(aei_no_nas, subset = id %in% finalids100bb)
 
-write.csv(aei_nocrop_samp, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocropland_sample.csv")
 
-summary(aei_nocrop_samp)
+
+
+write.csv(aei_nocrop_samp165aa, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165aa.csv")
+write.csv(aei_nocrop_samp165bb, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165bb.csv")
+write.csv(aei_nocrop_samp100aa, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100aa.csv")
+write.csv(aei_nocrop_samp100bb, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100bb.csv")
+
+
+
 ```
 
 
@@ -536,60 +601,66 @@ summary(aei_nocrop_samp)
 No need for this if we have decreased the 
 
 ```{r}
-aei_small <- aei_nocrop %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+aei_nocrop_samp165aa_5yr <- aei_nocrop_samp165aa %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+aei_nocrop_samp165bb_5yr <- aei_nocrop_samp165bb %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+aei_nocrop_samp100aa_5yr <- aei_nocrop_samp100aa %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
+aei_nocrop_samp100bb_5yr <- aei_nocrop_samp100bb %>% subset(., subset = yearcount %in% c("0",  "5", "10", "15", "20", "25", "30", "35", "40", "45"))
 
-write.csv(aei_small, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_small.csv")
+write.csv(aei_nocrop_samp165aa_5yr, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165aa_5yr.csv")
+write.csv(aei_nocrop_samp165bb_5yr, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165bb_5yr.csv")
+write.csv(aei_nocrop_samp100aa_5yr, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100aa_5yr.csv")
+write.csv(aei_nocrop_samp100bb_5yr, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100bb_5yr.csv")
 
-summary(aei_small)
+summary(aei_nocrop_samp_5yr)
 ```
   
 # Histograms
 
 
 ```{r histdist}
-hist(aei_nocrop_samp$irrfrac, breaks = 50)
+hist(aei_nocrop_samp_5yr$irrfrac, breaks = 50)
 ```
 
 
 ```{r histdist}
-hist(aei_nocrop_samp$dist, breaks = 1000)
-plot(aei_nocrop_samp$dist, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$dist, breaks = 1000)
+plot(aei_nocrop_samp_5yr$dist, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r histmedinc}
-hist(aei_nocrop_samp$medinc, breaks = 100000, xlim = c(-1, 1))
-plot(aei_nocrop_samp$medinc, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$medinc, breaks = 100000, xlim = c(-1, 1))
+plot(aei_nocrop_samp_5yr$medinc, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r histpopdens}
-hist(aei_nocrop_samp$popdens, breaks = 100)
-plot(aei_nocrop_samp$popdens, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$popdens, breaks = 100)
+plot(aei_nocrop_samp_5yr$popdens, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r histgdp}
-hist(aei_nocrop_samp$gdppc, breaks = 100)
-plot(aei_nocrop_samp$gdppc, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$gdppc, breaks = 100)
+plot(aei_nocrop_samp_5yr$gdppc, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r histprecip}
-hist(aei_nocrop_samp$precip, breaks = 100)
-plot(aei_nocrop_samp$precip, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$precip, breaks = 100)
+plot(aei_nocrop_samp_5yr$precip, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r histpet}
-hist(aei_nocrop_samp$pet, breaks = 100)
-plot(aei_nocrop_samp$pet, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$pet, breaks = 100)
+plot(aei_nocrop_samp_5yr$pet, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 ```{r}
-hist(aei_nocrop_samp$humid, breaks = 100)
-plot(aei_nocrop_samp$humid, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$humid, breaks = 100)
+plot(aei_nocrop_samp_5yr$humid, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 
 ```{r histrugg}
-hist(aei_nocrop_samp$rugged, breaks = 100)
-plot(aei_nocrop_samp$rugged, aei_nocrop_samp$irrfrac)
+hist(aei_nocrop_samp_5yr$rugged, breaks = 100)
+plot(aei_nocrop_samp_5yr$rugged, aei_nocrop_samp_5yr$irrfrac)
 ```
 
 
@@ -599,17 +670,17 @@ plot(aei_nocrop_samp$rugged, aei_nocrop_samp$irrfrac)
 
 
 ```{r}
-pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_nocrop_samp) 
+pairs(~irrfrac+log(gdppc)+log(popdens)+rugged,data=aei_nocrop_samp_5yr) 
 ```
 
 ```{r}
-pairs(~irrfrac + precip + humid + pet,data=aei_nocrop_samp) 
+pairs(~irrfrac + precip + humid + pet,data=aei_nocrop_samp_5yr) 
 ```
 
 I will be using precip. It fits better conceptually and the relationship here looks stronger than pet. 
 
 ```{r}
-pairs(~irrfrac + dist + medinc + Democracy + DD.regime,data=aei_nocrop_samp) 
+pairs(~irrfrac + dist + medinc + Democracy + DD.regime,data=aei_nocrop_samp_5yr) 
 ```
 
 

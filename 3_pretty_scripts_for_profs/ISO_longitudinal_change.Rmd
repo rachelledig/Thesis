@@ -25,29 +25,15 @@ library(agrmt)
 
 
 
-
-
-
-
-
 # Data
 
 ```{r load_data}
-aei_cropclean <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
-aei_cropclean_sample <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocropland_sample.csv")
+aei_nocrop_samp165aa_5yr <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165aa_5yr.csv")
+aei_nocrop_samp165bb_5yr <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp165bb_5yr.csv")
+aei_nocrop_samp100aa_5yr <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100aa_5yr.csv")
+aei_nocrop_samp100bb_5yr <- read.csv("/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop_samp100bb_5yr.csv")
 ```
 
-```{r morani}
-india <- aei_cropclean %>% subset(yearcount == 45 & ISO == "IND") %>% dplyr::select(id, lat, lon, irrfrac) #india for the year 2005
-moranfast(india$irrfrac, india$lon, india$lat)
-```
-
-```{r}
-coordinates(india)= ~ lon+lat
-bubble(india, zcol='irrfrac', fill=TRUE, do.sqrt=FALSE, maxsize=3) #check the bubble
-# TheVariogram=variogram(irrfrac~1, data=india)
-# plot(TheVariogram)
-```
 
 # Standardization
 
@@ -69,7 +55,7 @@ centered <-function(y) {
 
 Some variables need to be logged before centering on 0. Check out the predictors.
 ```{r}
-aei_cropclean_sample %>% dplyr::select(precip, humid,  dist, medinc, rugged, gdppc, popdens) %>% summary()
+aei_nocrop_samp165aa_5yr %>% dplyr::select(precip, humid,  dist, medinc, rugged, gdppc, popdens) %>% summary()
 ```
 Recall the histograms, only rugged and pet had (semi) normal distributions (they were not normally distributed at all but at least both were not seemingly zero inflated like the others). Knowing that pet will not be used and rugged just needs to be scaled, take the log of the other variables. All predictors to be logged contain zeros (or neg, medinc) except for gdp. All of the 0s here represent different things:
 
@@ -230,7 +216,10 @@ tibble(`Proper Normal(0, 1)` = rnorm(10000, 0, 1)) %>%
 
 # `brm()` settings
 ```{r brmsettings}
-df = aei_cropclean_sample
+df = aei_nocrop_samp165aa_5yr
+df2 = aei_nocrop_samp165bb_5yr
+df3 = aei_nocrop_samp100aa_5yr
+df4 = aei_nocrop_samp100bb_5yr
 ncore = 4 #detectCores()
 options(mc.cores = parallel::detectCores())
 niter = 2000
@@ -310,7 +299,7 @@ uncond_means_prior_ISO <-
 
 ```{r}
 job::job({
-uncond_means_ISO <-
+uncond_means_165aa <-
   brm(data = df,
       formula = bf(irrfrac ~ 1 + (1|ISO),
                    zi ~ 1 + (1|ISO)),
@@ -327,25 +316,32 @@ uncond_means_ISO <-
       seed = ncore,
       threads = threading(2),
       backend = "cmdstanr",
-      file = paste0(folder,"ISO_simple_uncondmeans.Rds"))
+      file = paste0(folder,"ISO_simple_uncondmeans165aa.Rds"))
 })
+```
+
+
+```{r}
+uncond_means_165bb <- brms::update(uncond_means_165aa, newdata = df2, file = paste0(folder, "ISO_simple_uncondmeans165bb.Rds"))
+uncond_means_100aa <- brms::update(uncond_means_165aa, newdata = df3, file = paste0(folder, "ISO_simple_uncondmeans100aa.Rds"))
+uncond_means_100bb <- brms::update(uncond_means_165aa, newdata = df4, file = paste0(folder, "ISO_simple_uncondmeans100bb.Rds"))
 ```
 
 5000 samples: 210.0 seconds. 2 chains, 2 cores, threading(2)
 
 ```{r}
-print(uncond_means_ISO)
+print(uncond_means_165aa)
 ```
 
 
 ```{r}
-plot(uncond_means_ISO)
+plot(uncond_means_165aa)
 ```
 These are untransformed. 
 
 
 ```{r}
-posterior_samples(uncond_means_ISO) %>%
+posterior_samples(uncond_means_165aa) %>%
   select(starts_with(c("b_", "Intercept", "sd_", "phi"))) %>% 
   mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
   mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
@@ -356,11 +352,11 @@ posterior_samples(uncond_means_ISO) %>%
 
 
 ```{r}
-pp_check(uncond_means_ISO)
+pp_check(uncond_means_165aa)
 ```
 
 ```{r}
-kfold(uncond_means_ISO)
+kfold(uncond_means_165aa)
 ```
 
 
@@ -392,7 +388,7 @@ uncond_growth_prior_ISO <-
 
 ```{r}
 job::job({
-uncond_growth_ISO <-
+uncond_growth_165aa <-
   brm(data = df,
       formula = bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
                    zi ~ 1 + yearcount + (1 + yearcount|ISO)),
@@ -410,24 +406,31 @@ uncond_growth_ISO <-
       backend = "cmdstanr",
       inits = "0",
       seed = seed,
-      file = paste0(folder,"ISO_simple_uncondgrowth.Rds"))
+      file = paste0(folder,"ISO_simple_uncondgrowth165aa.Rds"))
 })
 ```
+
+```{r}
+uncond_growth_165bb <- brms::update(uncond_growth_165aa, newdata = df2, file = paste0(folder, "ISO_simple_uncondgrowth165bb.Rds"))
+uncond_growth_100aa <- brms::update(uncond_growth_165aa, newdata = df3, file = paste0(folder, "ISO_simple_uncondgrowth100aa.Rds"))
+uncond_growth_100bb <- brms::update(uncond_growth_165aa, newdata = df4, file = paste0(folder, "ISO_simple_uncondgrowth100bb.Rds"))
+```
+
 
 5000: Total execution time: 1023.9 seconds. 2 chains, 2 cores, threading(2)
 
 ```{r}
-summary(uncond_growth_ISO)
+summary(uncond_growth_165aa)
 ```
 
 ```{r}
-plot(uncond_growth_ISO)
+plot(uncond_growth_165aa)
 ```
 
 
 ```{r}
 
-posterior_samples(uncond_growth_ISO) %>%
+posterior_samples(uncond_growth_165aa) %>%
   select(starts_with(c("b_", "Intercept", "sd_", "phi", "cor_ISO"))) %>% 
   mutate(across(.cols = starts_with("phi"), exp)) %>% #hmmmmmm
   mutate(across(.cols = starts_with(c("b_", "Intercept")), plogis)) %>% 
@@ -436,13 +439,19 @@ posterior_samples(uncond_growth_ISO) %>%
 
 ```
 ```{r}
-conditional_effects(uncond_growth_ISO)
+conditional_effects(uncond_growth_165aa)
 ```
 
 ```{r}
-pp_check(uncond_means_ISO) +
+pp_check(uncond_growth_165aa) +
   xlim(0, 0.2)
 ```
+
+
+```{r}
+kfold(uncond_growth_165aa)
+```
+
 
 ## Full Simple model ISO
 
