@@ -23,8 +23,8 @@ Input data from Fabian and LPJML
 
 usethis::use_blank_slate()
 
-iFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Grid_Data_Scripts/"
-oFol="/Volumes/RachelExternal/Thesis/Data_and_Plots/Plots/"
+iFol="/Volumes/RachelExternal2/Thesis/Data_and_Plots/Grid_Data_Scripts/"
+oFol="/Volumes/RachelExternal2/Thesis/Data_and_Plots/Plots/"
 load(file=paste0(iFol,"data.RData"))
 load(file=paste0(iFol,"cftfrac.RData"))
 load(file=paste0(iFol,"countryData_67420.RData"))
@@ -143,7 +143,7 @@ Adding some extra meta data here for further analysis down the road.
 
 ```{r extrameta}
 #some metadata for later analysis
-extrameta <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
+extrameta <- read.csv2("/Volumes/RachelExternal2/Thesis/Data_and_Plots/Country_Level_Data/GAPminder_ISOcodes.csv")
 
 extrameta %>% 
   dplyr::select(ISO, name) %>% 
@@ -240,6 +240,21 @@ aei <- aei %>%
 
 rm(cropland)
 ```
+
+```{r rice_and_maize}
+ricemaize = apply(cftfrac[,c(2,3,18,19),],c(1,3),sum) #summing rainfed and irrigated rice and maize 
+ricemaize <- as.data.frame(ricemaize)
+colnames(ricemaize) <- seq(1901, 2005, by = 1)
+ricemaize$id <- seq(1, 67420, by=1)
+
+ricemaize <- ricemaize %>% 
+  pivot_longer(-id, names_to = "years", values_to = "rice_maize")
+
+aei <- aei %>% 
+  right_join(., ricemaize, by = c("years", "id"))
+```
+
+
 
 ```{r distnextirr}
 dist <- as.data.frame(distNextIrr)
