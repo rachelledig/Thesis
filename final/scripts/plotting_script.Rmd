@@ -3,13 +3,20 @@
 library(ggmap)
 library(raster)
 library(ggplot2)
+library(dplyr)
+library(modelr)
+library(bayesplot)
+library(hexbin)
+library(ggpubr)
+library(tidybayes)
 ```
 
 
 ```{r cropland_vs_irrexpansion}
 aei <- read.csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_full.csv")
 aei_nocrop <- read.csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_nocrop.csv")
-aei_sample <- read.csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_nocrop_samp165aa_5yr.csv")
+aei_nocrop_samp165aa_5yr <- read.csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_nocrop_samp165aa_5yr.csv")
+`165aa_5yronlyISO_uncondmeans` <- readRDS("/Volumes/RachelExternal2/Thesis/Thesis/AWS/165aa_5yronlyISO_uncondmeans.rds")
 ```
 
 #
@@ -212,7 +219,8 @@ aei_nocrop_samp165aa_5yr %>%
 ggsave(last_plot(), filename = "/Volumes/RachelExternal2/Thesis/Thesis/final/plots/ziinterceptmodepred.png", width = 12)
 ```
 
-#Variance in mu and zi aggregated to regional level
+#Variance in mu and zi aggregated to regional level 
+This doesnt say much, dont get your hopes up
 ```{r}
 #This works - this is predicted - plots varying intercepts of an intercept only model
 zivar_reg <- 
@@ -279,25 +287,111 @@ bub <-
   data_grid(ISO) %>%
   add_epred_draws(`165aa_5yronlyISO_uncondmeans`, dpar = c("mu", "zi")) 
 
-# Most basic bubble plot
-aei_nocrop_samp165aa_5yr %>% 
-  select(Countryname, ISO, eight_regions) %>% 
-  mutate(Countryname = gsub("_", " ",.$Countryname)) %>% 
-  unique() %>% 
+# Most basic bubble plot with no uncertatinty
+aei_nocrop_samp165aa_5yr %>%
+  select(Countryname, ISO, eight_regions) %>%
+  mutate(Countryname = gsub("_", " ",.$Countryname)) %>%
+  unique() %>%
   left_join(bub, ., by = "ISO")  %>%
-  group_by(eight_regions) %>% 
+  group_by(eight_regions) %>%
   mutate(medmu = median(mu),
-            medzi = median(zi)) %>% 
+            medzi = median(zi)) %>%
   arrange(desc(medzi)) %>%
   ggplot(aes(x=medzi, y=medmu, fill=eight_regions)) +
     geom_point(shape=21, size = 5) +
-  geom_errorbar(aes(ymin = min(mu),ymax = max(mu))) + 
-    geom_errorbar(aes(xmin = min(zi),ymax = max(zi))) +
     theme_minimal()  +
     ylab("Irrigation Fraction per Irrigated Cell") +
-    xlab("Proportion of 0 cells") 
+    xlab("Proportion of 0 cells")
+
+
+#Uncertainty using density plots
+#not currently working well
+
+aei_nocrop_samp165aa_5yr %>% 
+  select(Countryname, ISO, eight_regions) %>%
+  mutate(Countryname = gsub("_", " ",.$Countryname)) %>%
+  unique() %>%
+  left_join(bub, ., by = "ISO") %>% 
+  dplyr::select(mu, zi, ISO, eight_regions) %>% 
+  ggplot(aes(x=zi, y=mu)) + 
+  geom_hex(binwidth = 0.01) + 
+  scale_fill_continuous(low="yellow", high="purple")+
+  facet_wrap(~eight_regions)+
+  theme_minimal()
+
+#Trials with marginal plots
+meds <-  aei_nocrop_samp165aa_5yr %>%
+  select(Countryname, ISO, eight_regions) %>%
+  mutate(Countryname = gsub("_", " ",.$Countryname)) %>%
+  unique() %>%
+  left_join(bub, ., by = "ISO")  %>%
+  group_by(eight_regions) %>%
+  mutate(medmu = median(mu),
+            medzi = median(zi)) %>%
+  arrange(desc(medzi)) 
+
+sp <-
+  ggplot(meds, aes(x=medzi, y=medmu, fill=eight_regions)) +
+    geom_point(shape=21, size = 5) +
+    theme_minimal()  +
+    ylab("Irrigation Fraction per Irrigated Cell") +
+    xlab("Proportion of 0 cells")+
+border()                                         
+# Marginal density plot of x (top panel) and y (right panel)
+xplot <- ggdensity(meds, "zi", fill = "eight_regions",
+               palette = "jco")
+yplot <- ggdensity(meds, "mu", fill = "eight_regions", 
+               palette = "jco")+
+rotate()
+# Cleaning the plots
+sp <- sp + rremove("legend")
+yplot <- yplot + clean_theme() + rremove("legend") 
+xplot <- xplot + clean_theme() + rremove("legend")
+# Arranging the plot using cowplot
+library(cowplot)
+plot_grid(xplot, NULL, sp, yplot, ncol = 2, align = "hv", 
+      rel_widths = c(2, 1), rel_heights = c(1, 2))
 ```
 
+```{r}
+plot.x <- ggplot(meds) + geom_boxplot(aes(eight_regions, zi))
+plot.y <- ggplot(meds) + geom_boxplot(aes(eight_regions, mu))
+
+plot.x <- layer_data(plot.x)[,1:6]
+plot.y <- layer_data(plot.y)[,1:6]
+colnames(plot.x) <- paste0("x.", gsub("y", "", colnames(plot.x)))
+colnames(plot.y) <- paste0("y.", gsub("y", "", colnames(plot.y)))
+df <- cbind(plot.x, plot.y); rm(plot.x, plot.y)
+df$category <- sort(unique(meds$eight_regions))
+
+df.outliers <- df %>%
+  select(category, x.middle, x.outliers, y.middle, y.outliers) %>%
+  data.table::data.table()
+
+
+ggplot(df, aes(fill = category, color = category)) +
+
+  # 2D box defined by the Q1 & Q3 values in each dimension, with outline
+  geom_rect(aes(xmin = x.lower, xmax = x.upper, ymin = y.lower, ymax = y.upper), alpha = 0.3) +
+  geom_rect(aes(xmin = x.lower, xmax = x.upper, ymin = y.lower, ymax = y.upper), 
+            color = "black", fill = NA) +
+
+  # whiskers for x-axis dimension with ends
+  geom_segment(aes(x = x.min, y = y.middle, xend = x.max, yend = y.middle)) + #whiskers
+  geom_segment(aes(x = x.min, y = y.lower, xend = x.min, yend = y.upper)) + #lower end
+  geom_segment(aes(x = x.max, y = y.lower, xend = x.max, yend = y.upper)) + #upper end
+
+  # whiskers for y-axis dimension with ends
+  geom_segment(aes(x = x.middle, y = y.min, xend = x.middle, yend = y.max)) + #whiskers
+  geom_segment(aes(x = x.lower, y = y.min, xend = x.upper, yend = y.min)) + #lower end
+  geom_segment(aes(x = x.lower, y = y.max, xend = x.upper, yend = y.max)) + #upper end
+  
+
+  xlab("zi") + ylab("mu") +
+  facet_wrap(~category) +
+  coord_cartesian(xlim = c(0,1), ylim = c(0,0.20)) +
+  theme_minimal()
+```
 
 
 
