@@ -241,20 +241,6 @@ aei <- aei %>%
 rm(cropland)
 ```
 
-```{r rice_and_maize}
-ricemaize = apply(cftfrac[,c(2,3,18,19),],c(1,3),sum) #summing rainfed and irrigated rice and maize 
-ricemaize <- as.data.frame(ricemaize)
-colnames(ricemaize) <- seq(1901, 2005, by = 1)
-ricemaize$id <- seq(1, 67420, by=1)
-
-ricemaize <- ricemaize %>% 
-  pivot_longer(-id, names_to = "years", values_to = "rice_maize")
-
-aei <- aei %>% 
-  right_join(., ricemaize, by = c("years", "id"))
-```
-
-
 
 ```{r distnextirr}
 dist <- as.data.frame(distNextIrr)
@@ -394,7 +380,7 @@ aei <- wb_data("NV.AGR.TOTL.ZS", start_date = 1960, end_date = 2005) %>%
 Democracy
 
 ```{r democracy}
-aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Data/Bjørnskov-Rode-Democracy-data.csv") %>% 
+aei <- read.csv2("/Volumes/RachelExternal2/Thesis/Data_and_Plots/Country_Level_Data/Bjørnskov-Rode-Democracy-data.csv") %>% 
   dplyr::select(-c(6:12,14:19,21:22,24:51)) %>% 
   rename(ISO = country.isocode, years = year) %>% 
   dplyr::select(ISO, years, DD.regime, DD.category, Democracy) %>% 
@@ -407,7 +393,57 @@ aei <- read.csv2("/Volumes/RachelExternal/Thesis/Data_and_Plots/Country_Level_Da
  
 ```
 
+```{r rice_and_maize}
 
+FAOSTAT_data_11_14_2021_rice_and_maize <- read_csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/Country_Level_Data/FAOSTAT_data_11-14-2021_rice_and_maize.csv")
+FAOSTAT_data_11_15_2021_area <- read_csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/Country_Level_Data/FAOSTAT_data_11-15-2021_area.csv")
+FAOSTAT_data_11_15_2021 <- read_csv("/Volumes/RachelExternal2/Thesis/Data_and_Plots/Country_Level_Data/FAOSTAT_data_11-15-2021.csv")
+
+FAOSTAT_data_11_15_2021_area <- 
+  FAOSTAT_data_11_15_2021_area %>% 
+  dplyr::select(`Area Code (ISO3)`, Area, Value, Unit) %>% 
+  dplyr::rename(ISO = `Area Code (ISO3)`)
+
+FAOSTAT_data_11_15_2021 <- 
+  FAOSTAT_data_11_15_2021 %>% 
+  rename(ISO = `Area Code (ISO3)`) %>% 
+  left_join(., FAOSTAT_data_11_15_2021_area, by = "ISO") %>% 
+  dplyr::rename(cereals_ha = "Value.x", 
+         total_area = "Value.y", 
+         Countryname = "Area.x",
+         years = "Year") %>% 
+  dplyr::mutate(total_area = total_area*1000) %>% 
+  dplyr::select(ISO, Countryname,
+                Item, years, cereals_ha, total_area ) %>%
+  mutate(cereal_frac = cereals_ha/total_area) %>% 
+  tibble()
+
+
+new <- tibble(FAOSTAT_data_11_15_2021$ISO) %>% unique() %>% rename(ISO = "FAOSTAT_data_11_15_2021$ISO")
+new$years <- 1960
+
+FAOSTAT_data_11_15_2021 <- dplyr::bind_rows(new, FAOSTAT_data_11_15_2021)
+
+#fill in that missing year
+FAOSTAT_data_11_15_2021<-
+  FAOSTAT_data_11_15_2021 %>% 
+  dplyr::group_by(ISO) %>% 
+  fill(everything(), .direction = "up") %>% 
+  dplyr::ungroup() %>% 
+  dplyr::select(ISO, years, cereals_ha, total_area, cereal_frac)
+
+
+  
+rm(FAOSTAT_data_11_15_2021_area)
+
+
+#the join
+#will come back later to fix some countries, 
+#just want to see how things play out
+
+aei <- aei %>% 
+  anti_join(., FAOSTAT_data_11_15_2021, by = c("years", "ISO")) 
+```
 #Variable transformation
 
 - Irrigation fraction as a proportion of cropland, not cell area
@@ -428,7 +464,7 @@ aei$irrcrop[is.nan(aei$irrcrop)]<-0
 ```{r}
 summary(aei)
 
-write_csv(aei, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_full.csv")
+write_csv(aei, "/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_full.csv")
 ```
 
 
@@ -460,7 +496,7 @@ gridExtra::grid.arrange(p1, p2, ncol = 2)
 
 
 
-write.csv(aei_nocrop, "/Volumes/RachelExternal/Thesis/Data_and_Plots/aei_nocrop.csv")
+write.csv(aei_nocrop, "/Volumes/RachelExternal2/Thesis/Data_and_Plots/aei_nocrop.csv")
 ```
 
 
@@ -506,6 +542,8 @@ Check for NA data in main predictors
 aei_nocrop %>% subset(., is.na(DD.regime)) %>% dplyr::select(Countryname) %>% unique()
 aei_nocrop %>% subset(., is.na(gdppc)) %>% dplyr::select(Countryname) %>% unique()
 aei_nocrop %>% subset(., is.na(rugged)) %>% dplyr::select(Countryname) %>% unique()
+aei_nocrop %>% subset(., is.na(cereal_frac)) %>% dplyr::select(Countryname) %>% unique()
+
 ```
 
 There is a lot of NAs in a couple different predictors. Brms doesn't allow for NAs. I will remove them.
