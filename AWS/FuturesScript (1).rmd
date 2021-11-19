@@ -1,10 +1,12 @@
 # Packages
 
 ```{r}
-
+update.packages("brms")
+update.packages("cmdstanr")
 library(brms)
 library(tidyverse)
 library(rstan)
+library(cmdstanr)
 remotes::install_github("lindeloev/job")
 library(job)
 ```
@@ -21,7 +23,7 @@ data1 <- aei_nocrop_samp165aa_5yr[,-1]
 ```{r}
 centered <-function(y) {
   x<-y[!is.na(y)]
-  x<-(x - mean(x)) / (sd(x)*2)
+  x<-(x - mean(x)) / (sd(x))
   y[!is.na(y)]<-x
   return(y)
 }

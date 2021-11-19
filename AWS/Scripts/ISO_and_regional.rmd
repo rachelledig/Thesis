@@ -1,0 +1,441 @@
+# Packages
+
+```{r}
+if (!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+remotes::install_github("paul-buerkner/brms")
+remotes::install_github("stan-dev/cmdstanr")
+library(brms)
+library(tidyverse)
+library(rstan)
+library(cmdstanr)
+remotes::install_github("lindeloev/job")
+library(job)
+```
+
+#trial
+Checking that kfold is working
+```{r}
+data("epilepsy")
+
+epi_m <- brm(
+  count ~ 1 + Age + (1 + Age|patient), 
+  data = epilepsy,
+  backend = "cmdstanr", 
+  threads = threading(2),
+  file = paste0(folder,"trial2.Rds"))
+
+recomped <- recompile_model(epi_m)
+
+ktrial <- kfold(epi_m)
+
+```
+
+
+
+
+
+
+#Data
+
+```{r}
+data1 <- aei_nocrop_samp165aa_5yr[,-1]
+
+```
+
+#Standardization
+
+```{r}
+centered <-function(y) {
+  x<-y[!is.na(y)]
+  x<-(x - mean(x)) / (sd(x))
+  y[!is.na(y)]<-x
+  return(y)
+}
+
+
+data1 <-
+  data1 %>% 
+  mutate(across(c(13:20), centered)) %>% 
+  mutate(across(c(1:3,6,7,21,22), as.factor)) 
+
+summary(data1)
+```
+
+
+# `brm()` settings
+```{r brmsettings}
+
+ncore = 4 #detectCores()
+options(mc.cores = parallel::detectCores())
+niter = 2000
+nchain = 4
+seed = 2
+
+data = data1
+
+#saving location
+folder = "/home/rstudio/fits/"
+```
+
+
+
+# Regions
+
+```{r uncondmeans_reg}
+
+get_prior(data = data,
+    bf(irrfrac ~ 1 + (1|eight_regions),
+       zi ~ 1 + (1|eight_regions)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+uncondmeans_reg <- brm(data = data,
+    bf(irrfrac ~ 1 + (1|eight_regions),
+       zi ~ 1 + (1|eight_regions)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), class = Intercept, dpar = zi),
+                      prior(student_t(3, 0, 2.5), class = sd)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"uncondmeans_reg.Rds")
+    )
+  }) 
+```
+
+
+```{r uncondgrowth_reg}
+
+get_prior(data = data,
+    bf(bf(irrfrac ~ 1 + yearcount + (1 + yearcount|eight_regions),
+       zi ~ 1 + (1 |eight_regions))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+uncondgrowth_reg <- brm(data = data,
+    bf(irrfrac ~ 1 + yearcount + (1 + yearcount|eight_regions),
+       zi ~ 1 + (1|eight_regions)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), class = Intercept, dpar = zi),
+                      prior(student_t(3, 0, 2.5), class = sd), 
+                      prior(lkj(2), class = cor), 
+                      prior(normal(0,1), class = b)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"uncondgrowth_reg.Rds")
+    )
+  }) 
+```
+
+
+```{r composite_reg}
+get_prior(data = data,
+    bf(bf(irrfrac ~ 0 + 
+            Intercept + 
+            yearcount + 
+            precip:yearcount + 
+            rugged:yearcount + 
+            gdppc:yearcount + 
+            popdens:yearcount + 
+            DD.regime:yearcount + 
+            (0 + Intercept + yearcount | eight_regions),
+          zi ~ 0 +
+            Intercept + 
+            rugged +
+            precip + 
+            dist + 
+            gdppc +
+            (0 + Intercept + rugged + precip + dist + gdppc| eight_regions))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+composite_reg <- brm(data = data,
+    bf(bf(irrfrac ~ 0 + 
+            Intercept + 
+            yearcount + 
+            precip:yearcount + 
+            rugged:yearcount + 
+            gdppc:yearcount + 
+            popdens:yearcount + 
+            DD.regime:yearcount + 
+            (0 + Intercept + yearcount | eight_regions),
+          zi ~ 0 +
+            Intercept + 
+            rugged +
+            precip + 
+            dist + 
+            gdppc +
+            (0 + Intercept + rugged + precip + dist + gdppc| eight_regions))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = b, coef = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), dpar = zi, class = b, coef = Intercept),
+                      prior(student_t(3, 0, 2.5), class = sd), 
+                      prior(lkj(2), class = cor), 
+                      prior(normal(0,1), class = b)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"composite_reg.Rds")
+    )
+  }) 
+```
+
+##Conditional Effects Regions
+```{r}
+conds_reg <- make_conditions(data, vars = c("eight_regions"))
+cond_uncondgrowth_reg_mu <- conditional_effects(uncondgrowth_reg, 
+                                                conditions = conds_reg,
+                                                re_formula = NULL,
+                                                dpar = "mu",
+                                                plot = FALSE)
+saveRDS(cond_uncondgrowth_reg_mu, file = paste0(folder,"condeff_uncondgrowth_reg.Rds"))
+
+cond_composite_reg_zi <- conditional_effects(composite_reg, 
+                                             conditions = conds_reg,
+                                             re_formula = NULL,
+                                             dpar = "zi",
+                                             plot = FALSE)
+saveRDS(cond_composite_reg_zi, file = paste0(folder,"condeff_zi_composite_reg.Rds"))
+
+cond_composite_reg_mu <- conditional_effects(composite_reg, 
+                                             conditions = conds_reg,
+                                             re_formula = NULL,
+                                             dpar = "mu",
+                                             plot = FALSE)
+saveRDS(cond_composite_reg_mu, file = paste0(folder,"condeff_mu_composite_reg.Rds"))
+```
+
+
+
+
+# ISO
+```{r uncondmeans_ISO}
+
+get_prior(data = data,
+    bf(irrfrac ~ 1 + (1|ISO),
+       zi ~ 1 + (1|ISO)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+uncondmeans_ISO <- brm(data = data,
+    bf(irrfrac ~ 1 + (1|ISO),
+       zi ~ 1 + (1|ISO)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), class = Intercept, dpar = zi),
+                      prior(student_t(3, 0, 2.5), class = sd)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"uncondmeans_ISO.Rds")
+    )
+  }) 
+```
+
+
+```{r uncondgrowth_ISO}
+
+get_prior(data = data,
+    bf(bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
+       zi ~ 1 + (1 |ISO))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+uncondgrowth_ISO <- brm(data = data,
+    bf(irrfrac ~ 1 + yearcount + (1 + yearcount|ISO),
+       zi ~ 1 + (1|ISO)),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), class = Intercept, dpar = zi),
+                      prior(student_t(3, 0, 2.5), class = sd), 
+                      prior(lkj(2), class = cor), 
+                      prior(normal(0,1), class = b)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"uncondgrowth_ISO.Rds")
+    )
+  }) 
+```
+
+
+```{r composite_ISO}
+get_prior(data = data,
+    bf(bf(irrfrac ~ 0 + 
+            Intercept + 
+            yearcount + 
+            precip:yearcount + 
+            rugged:yearcount + 
+            gdppc:yearcount + 
+            popdens:yearcount + 
+            DD.regime:yearcount + 
+            (0 + Intercept + yearcount | ISO),
+          zi ~ 0 +
+            Intercept + 
+            rugged +
+            precip + 
+            dist + 
+            gdppc +
+            (0 + Intercept + rugged + precip + dist + gdppc| ISO))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"))
+
+job::job({
+composite_reg <- brm(data = data,
+    bf(bf(irrfrac ~ 0 + 
+            Intercept + 
+            yearcount + 
+            precip:yearcount + 
+            rugged:yearcount + 
+            gdppc:yearcount + 
+            popdens:yearcount + 
+            DD.regime:yearcount + 
+            (0 + Intercept + yearcount | ISO),
+          zi ~ 0 +
+            Intercept + 
+            rugged +
+            precip + 
+            dist + 
+            gdppc +
+            (0 + Intercept + rugged + precip + dist + gdppc| ISO))),
+    family = zero_inflated_beta(link = "logit", 
+                                  link_phi = "identity", 
+                                  link_zi = "logit"), 
+    prior = c(prior(student_t(3, 0, 2.5), class = b, coef = Intercept),
+                      prior(gamma(0.01, 0.01), class = phi),
+                      prior(logistic(0, 1), dpar = zi, class = b, coef = Intercept),
+                      prior(student_t(3, 0, 2.5), class = sd), 
+                      prior(lkj(2), class = cor), 
+                      prior(normal(0,1), class = b)),
+    control = list(adapt_delta = 0.95,
+                   max_treedepth=11),
+    sample_prior = "yes",
+    cores = ncore,
+    iter = niter,
+    chains = nchain,
+    inits = "0",
+    threads = threading(4),
+    backend = "cmdstanr",
+    seed = seed,
+    file = paste0(folder,"composite_ISO.Rds")
+    )
+  }) 
+```
+
+## Conditional Effects ISO
+```{r}
+conds_ISO <- make_conditions(data, vars = c("ISO"))
+cond_uncondgrowth_ISO_mu <- conditional_effects(uncondgrowth_ISO, 
+                                                conditions = conds_ISO,
+                                                re_formula = NULL,
+                                                dpar = "mu",
+                                                plot = FALSE)
+saveRDS(cond_uncondgrowth_ISO_mu, file = paste0(folder,"condeff_uncondgrowth_ISO.Rds"))
+
+cond_composite_ISO_zi <- conditional_effects(composite_ISO, 
+                                             conditions = conds_ISO,
+                                             re_formula = NULL,
+                                             dpar = "zi",
+                                             plot = FALSE)
+saveRDS(cond_composite_ISO_zi, file = paste0(folder,"condeff_zi_composite_ISO.Rds"))
+
+cond_composite_ISO_mu <- conditional_effects(composite_ISO, 
+                                             conditions = conds_ISO,
+                                             re_formula = NULL,
+                                             dpar = "mu",
+                                             plot = FALSE)
+saveRDS(cond_composite_ISO_mu, file = paste0(folder,"condeff_mu_composite_ISO.Rds"))
+```
+
+
+# Kfold
+
+```{r}
+kuncondmeans_reg <- kfold(uncondmeans_reg)
+kuncondgrowth_reg <- kfold(uncondgrowth_reg)
+kcomposite_reg <- kfold(composite_reg)
+kuncondmeans_ISO <- kfold(uncondmeans_ISO)
+kuncondgrowth_ISO <- kfold(uncondgrowth_ISO)
+kcomposite_ISO <- kfold(composite_ISO)
+
+
+compare_ic(kuncondmeans_reg, 
+           kuncondgrowth_reg, 
+           kcomposite_reg, 
+           kuncondmeans_ISO, 
+           kuncondgrowth_ISO,
+           kcomposite_ISO)
+```
+
+
+
+
+
+
+
