@@ -748,7 +748,7 @@ Countrynames <-
 
 
 #posterior draws to construct mu
-mus <-
+pdf("/Volumes/RachelExternal2/Thesis/BayesMultilevelMods/figure/longplot.png", height = 20)
   `165aa_5yronlyISO_notimeserieszi` %>%
   spread_draws(b_Intercept, r_ISO[ISO,]) %>%
   # add the grand mean to the group-specific deviations
@@ -761,9 +761,9 @@ mus <-
   geom_vline(xintercept = exp(fixef(`165aa_5yronlyISO_notimeserieszi`)[1, 3:4]), color = "#839496", linetype = 2) +
   geom_halfeyeh(.width = .5, size = 2/3, fill = "#859900") +
   xlim(0,0.10) 
+dev.off() 
   
-  
-  ggsave(mus, file = "/Volumes/RachelExternal2/Thesis/BayesMultilevelMods/figure/longplot.png", height = 20, units = "in")
+ggsave(mus, file = "/Volumes/RachelExternal2/Thesis/BayesMultilevelMods/figure/longplot.png", height = 20, units = "in")
 
 
 ```
