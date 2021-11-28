@@ -33,31 +33,32 @@ aei <- aei[,-1]
 
 Some notes on the data: A standardized data set is being used. Here are the main predictors with their standardization method.
 
-**Normalizing**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i-min(y)}{max(y)-min(y)}$. This is useful because for some predictors it is helpful to have a notion of how big or small they are with the constraints of 0 and 1.    
+**Normalizing**: Shifting the range of the predictor between [0,1] using the formula: $\frac{y_i-min(y)}{max(y)-min(y)}$. This is useful because for some predictors it is helpful to have a notion of how big or small they are with the constraints of 0 and 1.
 
-**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{2sd(y)}$. The classic with a twist. By using 2 standard deviations, 95% of the data is contained within one unit, or 2 sd to each side, convenient. 
+**Centering**: Centering the mean of the predictor on 0 or 1 using the formula: $\frac{y_i-mean(y)}{2sd(y)}$. The classic with a twist. By using 2 standard deviations, 95% of the data is contained within one unit, or 2 sd to each side, convenient.
 
-- _population_ - Log and Center
-- _income_ - Log and Center
-- _GDP_ - Log and Center
-- _Median Humidity_ - Center
-- _Median PET_ - Center
-- _Precip_ - Center
-- _Ruggedness_ - Normalize
+-   *population* - Log and Center
+-   *income* - Log and Center
+-   *GDP* - Log and Center
+-   *Median Humidity* - Center
+-   *Median PET* - Center
+-   *Precip* - Center
+-   *Ruggedness* - Normalize
 
 And a quick summary of the data:
+
 ```{r}
 aei %>% 
   select(-c(1:6, 11:16, 21, 25:51)) %>% 
   summary() %>% 
   kable()
 ```
-Irrfrac has not been centered, as it is between 0 and 1. I will leave it as such. Everything else has been centered on 0 except for ruggedness, which is normalized. 
+
+Irrfrac has not been centered, as it is between 0 and 1. I will leave it as such. Everything else has been centered on 0 except for ruggedness, which is normalized.
 
 # Setting Priors
 
-
-The `beta` distribution is a beast that turns every which way and is difficult to conceptualize how it will behave (at least for me). I will choose two mus that make sense for the data, as it is super skewed to the left. 
+The `beta` distribution is a beast that turns every which way and is difficult to conceptualize how it will behave (at least for me). I will choose two mus that make sense for the data, as it is super skewed to the left.
 
 ```{r echo=FALSE}
 tibble(mu = c(.1, .25, .5)) %>% 
@@ -76,17 +77,15 @@ tibble(mu = c(.1, .25, .5)) %>%
 
 Flexible it is. Been sitting here for an hour trying to figure out what phi does to the distribution, it is not intuitive. Side note: neg phi values are not tolerated.
 
-
 ## The `beta`
 
+Alright, so the mess begins.
 
-Alright, so the mess begins. 
+For zero inflated models we need to pull some tricks to be able to select priors for these models because the issue here involves the link functions. Different parameters have different links: intercept and zi (the part that predicts the proportion of 0s) use a logit link, phi uses a log link.
 
-For zero inflated models we need to pull some tricks to be able to select priors for these models because the issue here involves the link functions. Different parameters have different links: intercept and zi (the part that predicts the proportion of 0s) use a logit link, phi uses a log link. 
+So, with help from Marie, we have figured out how brms requires the priors for zero inflated models. The specified priors must be applicable when transformed with their respective link functions.
 
-So, with help from Marie, we have figured out how brms requires the priors for zero inflated models. The specified priors must be applicable when transformed with their respective link functions. 
-
-Let's build a quick model and use `get_prior()` to find out what will be the default settings for this formula and family. 
+Let's build a quick model and use `get_prior()` to find out what will be the default settings for this formula and family.
 
 ```{r brms formula and priors}
 cl_zi_prior_spec_bf <-bf(
@@ -102,11 +101,10 @@ get_prior(
 )
 ```
 
-
-We have three specified intercepts and the applied priors:   
-- one for the `beta` part of the model - $T(3, 0, 2.5)$  
-- one for the dispersion coeff of the `beta`, phi - $T(3, 0, 2.5)$  
-- one for the intercept of the zero inflated probability, zi - $logistic(0, 1)$   
+We have three specified intercepts and the applied priors:\
+- one for the `beta` part of the model - $T(3, 0, 2.5)$\
+- one for the dispersion coeff of the `beta`, phi - $T(3, 0, 2.5)$\
+- one for the intercept of the zero inflated probability, zi - $logistic(0, 1)$
 
 brms also uses flat priors for all coeffs that are not intercepts (class = 'b')
 
@@ -114,9 +112,9 @@ brms also uses flat priors for all coeffs that are not intercepts (class = 'b')
 
 #### Default Intercept for `beta`
 
-Some things to remember, for this equation we are using a `logit` link. I will use the functions `qlogis()` and `plogis()` which represent the logit transformation and the inverse logit, respectively. 
+Some things to remember, for this equation we are using a `logit` link. I will use the functions `qlogis()` and `plogis()` which represent the logit transformation and the inverse logit, respectively.
 
-I am not entirely clear here on which way I should apply this transition. Expanding on the logic from before, the specified priors must be applicable when transformed, I need to specify a scaled T distribution and transform it with the `qlogis()` function. however, I also could understand that the priors we defined, we assume, have already undergone the logit link as we will use them on a transformed scale, thus we need to apply the inverse logit (`plogis()`) link to visualize the prior on the outcome scale. 
+I am not entirely clear here on which way I should apply this transition. Expanding on the logic from before, the specified priors must be applicable when transformed, I need to specify a scaled T distribution and transform it with the `qlogis()` function. however, I also could understand that the priors we defined, we assume, have already undergone the logit link as we will use them on a transformed scale, thus we need to apply the inverse logit (`plogis()`) link to visualize the prior on the outcome scale.
 
 ```{r}
 #try with `qlogis()`
@@ -131,9 +129,9 @@ tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%
   ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
 ```
 
-Remember, red is the original student t distribution, and the blue is the transformed prior. 
+Remember, red is the original student t distribution, and the blue is the transformed prior.
 
-Here I get a warning about removing non-finite values. let me check the summary of the little df we created. 
+Here I get a warning about removing non-finite values. let me check the summary of the little df we created.
 
 ```{r}
 tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  
@@ -142,12 +140,11 @@ tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%
   
 ```
 
-Alright, a lot of NAs in this little transformed col. Going back to the logit equation, if you remember the logit was the log odds. 
-$$
+Alright, a lot of NAs in this little transformed col. Going back to the logit equation, if you remember the logit was the log odds. $$
 logit(\pi) = log \frac{\pi}{1-\pi}
 $$
 
-and if you look at the default distribution (in red above) we clearly have negative values for $\pi$. Inputting negative values in to the logit function (or remember `qlogis()`) will produce a lot of NAs or NaNs, as the numerator will be negative and logging a negative is not the way to go. This makes me think that these priors are defined in the second way, assuming that they have already been transformed, and we need to untransform them (using the inverse link or `plogis()`) to visualize them on an outcome scale. Lets try the same thing and see if we produce as many NaNs. 
+and if you look at the default distribution (in red above) we clearly have negative values for $\pi$. Inputting negative values in to the logit function (or remember `qlogis()`) will produce a lot of NAs or NaNs, as the numerator will be negative and logging a negative is not the way to go. This makes me think that these priors are defined in the second way, assuming that they have already been transformed, and we need to untransform them (using the inverse link or `plogis()`) to visualize them on an outcome scale. Lets try the same thing and see if we produce as many NaNs.
 
 ```{r}
 #try with `plogis()`
@@ -161,17 +158,19 @@ tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%
   xlim(-5,5) + xlab(NULL) +
   ggtitle("Default Global Intercept Prior - Student T(3, 0, 2.5)")
 ```
+
 ```{r}
 tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%  #log normal
   mutate(`Outcome Scale` = plogis(`Default Student T(3, 0, 2.5)`)) %>% 
   summary()
 ```
 
-Ok, less yelling here, and it seems to be coming from ggplot2 not from the summary, as there are no NAs in the outcome col. The summary shows that the outcome scale is from 0 to 1, so I think that this is the correct logic here. Obviously will be using `plogis` from now on. Looking at the outcome (inverse logit transformed) distribution looks great for something that is zero one inflated. Irrigation fraction is only zero inflated. Lets see if we can find a different, more suitable prior for the data. 
+Ok, less yelling here, and it seems to be coming from ggplot2 not from the summary, as there are no NAs in the outcome col. The summary shows that the outcome scale is from 0 to 1, so I think that this is the correct logic here. Obviously will be using `plogis` from now on. Looking at the outcome (inverse logit transformed) distribution looks great for something that is zero one inflated. Irrigation fraction is only zero inflated. Lets see if we can find a different, more suitable prior for the data.
 
 #### Selecting Priors for Intercept of `beta`
 
 Now to play around with priors (and see if I am really proficient with ggplot2), Lets use a normal distribution and mess around with mean and sd.
+
 ```{r}
 
 
@@ -214,10 +213,10 @@ Nm20 <-
 gridExtra::grid.arrange(N00, N20, Nm20, nrow = 1)
 ```
 
-So shifting the mean around of the $N(⋅)$ does shift the mean of the prior on the outcome scale. A $N(0,0)$ transformed has a mean at 0.5. A $N(2,0)$ seems to shift the mean of the outcome scaled prior to the right, closer to 1. A $N(-2,0)$ shifts the mean in the other direction. 
+So shifting the mean around of the $N(⋅)$ does shift the mean of the prior on the outcome scale. A $N(0,0)$ transformed has a mean at 0.5. A $N(2,0)$ seems to shift the mean of the outcome scaled prior to the right, closer to 1. A $N(-2,0)$ shifts the mean in the other direction.
 
- 
 Lets check the effect of changing the standard dev with a normal distribution.
+
 ```{r}
 
 N0_5 <- tibble(`Normal(0,0.5)` = rnorm(10000, 0, 0.5)) %>%  
@@ -281,13 +280,13 @@ tibble(`Normal(-3,2)` = rnorm(10000, -3, 2)) %>%
 
 ```
 
-This seems like a completely arbitrary prior but it is a pretty educated guess of the distribution of the data. Perhaps we keep it here. 
+This seems like a completely arbitrary prior but it is a pretty educated guess of the distribution of the data. Perhaps we keep it here.
 
 ### `beta`'s Phi
 
-What is this phi? 
+What is this phi?
 
-Well, a `beta` distribution can be parameterized one of two ways, either using shapes a and b to describe the distribution or mu (the mean) and phi (the dispersion). brms uses the second parameterization and phi functions similarly to the standard deviation of a normal distribution, it tells you the width of the distribution. This seems intuitive in theory but as you could tell from the graphs at the beginning, the phi parameter changes not only the spread, but the shape. 
+Well, a `beta` distribution can be parameterized one of two ways, either using shapes a and b to describe the distribution or mu (the mean) and phi (the dispersion). brms uses the second parameterization and phi functions similarly to the standard deviation of a normal distribution, it tells you the width of the distribution. This seems intuitive in theory but as you could tell from the graphs at the beginning, the phi parameter changes not only the spread, but the shape.
 
 #### Default Intercept for `beta`'s phi
 
@@ -307,11 +306,12 @@ tibble(`Default Student T(3, 0, 2.5)` = rt(10000, 3, 0)*2.5) %>%
 
 ```
 
-Alright, this seems fine but I was just thinking that I have no notion for what the phi of the data would be...but if I go back up and set the mu closer to what I think the mu for the data will be, this looks like an acceptable prior. As the data is so left skewed, to account for the distribution to do something similar to what the data is, the mu needs to be close to 0. Phi seems to have an interesting relationship with mu, the closer mu is to 0 the larger phi can be without loosing its descriptive shape of the data. If mu is farther away from 0, phi has to remain closer to 0 to maintain the shape of the data. Check out the graphs in the beginning. This seems logical because the smaller phi is the "tighter" the distribution is to mu. I think that values of $\phi <= 5$ would probably work, which is pretty much what this Student T dictates. I can mess around for a sec but I may end up keeping this one, it seems pretty regularizing. 
+Alright, this seems fine but I was just thinking that I have no notion for what the phi of the data would be...but if I go back up and set the mu closer to what I think the mu for the data will be, this looks like an acceptable prior. As the data is so left skewed, to account for the distribution to do something similar to what the data is, the mu needs to be close to 0. Phi seems to have an interesting relationship with mu, the closer mu is to 0 the larger phi can be without loosing its descriptive shape of the data. If mu is farther away from 0, phi has to remain closer to 0 to maintain the shape of the data. Check out the graphs in the beginning. This seems logical because the smaller phi is the "tighter" the distribution is to mu. I think that values of $\phi <= 5$ would probably work, which is pretty much what this Student T dictates. I can mess around for a sec but I may end up keeping this one, it seems pretty regularizing.
 
 #### Selecting Priors for Intercept of `beta`'s phi
 
-Alright, since we want these to be positive, we could try a log normal distribution. but upon further investigation, as this prior will be transformed, the only thing that matters is that after it has been (inversely) transformed back to the output scale it should be positive, not that the specified prior distribution has to be non negative. 
+Alright, since we want these to be positive, we could try a log normal distribution. but upon further investigation, as this prior will be transformed, the only thing that matters is that after it has been (inversely) transformed back to the output scale it should be positive, not that the specified prior distribution has to be non negative.
+
 ```{r}
 tibble(`LogNormal(0, 1)` = rlnorm(10000, 0, 1)) %>% 
   mutate(outcome_scale = exp(`LogNormal(0, 1)`)) %>% 
@@ -327,7 +327,7 @@ tibble(`LogNormal(0, 1)` = rlnorm(10000, 0, 1)) %>%
 
 Yeah, The issue with using a $LogN()$ distribution is that when transformed I cannot get the outcome distribution of phi (in blue, remember) to move any closer to 0, without specifying a negative mean for $LogN()$, which seems illegal. I want values of phi to be able to occupy near 0 if need be, so lets try something else.
 
-Sometimes I have seen a gamma used as a default, and actually if you plug in the formula for this model directly in to `get_prior()` it specifies completely different priors. I don't understand why yet, but I think I will leave that one to the mysteries of the universe. I'll prove it here though, just for myself. 
+Sometimes I have seen a gamma used as a default, and actually if you plug in the formula for this model directly in to `get_prior()` it specifies completely different priors. I don't understand why yet, but I think I will leave that one to the mysteries of the universe. I'll prove it here though, just for myself.
 
 ```{r}
 get_prior(
@@ -337,7 +337,7 @@ get_prior(
 )
 ```
 
-So, a learning moment here, brms will give you a default prior for phi as the gamma distribution if you don't predict phi (and you get a different prior for zi too, if you don't predict it within the `bf()`). But we need to be careful here. The [STAN forum](https://discourse.mc-stan.org/t/understanding-parameters-of-beta-family-in-brms/21640/9) talks about how when you don't predict a parameter, the default assigned prior is in the non transformed (outcome) scale. So none of this `exp` or `logit` business. 
+So, a learning moment here, brms will give you a default prior for phi as the gamma distribution if you don't predict phi (and you get a different prior for zi too, if you don't predict it within the `bf()`). But we need to be careful here. The [STAN forum](https://discourse.mc-stan.org/t/understanding-parameters-of-beta-family-in-brms/21640/9) talks about how when you don't predict a parameter, the default assigned prior is in the non transformed (outcome) scale. So none of this `exp` or `logit` business.
 
 What if I try a normal distribution, just for fun.
 
@@ -356,13 +356,11 @@ tibble(`Normal(-1,2)` = rnorm(10000, -1, 2)) %>%
 
 ```
 
-
 Yeah this one would probably work, from a theoretical standpoint. However, at the moment the phi parameter is not the clearest to me, I will most likely continue to use the default provided by brms. Also this one looks very similar to the default student t.
 
 ## The `bernoulli`
 
-Now we move on to the zero inflated part, which in a `zero_inflated_beta()` is encapsulated by a bernoulli distribution. Which could look like this:
-$$
+Now we move on to the zero inflated part, which in a `zero_inflated_beta()` is encapsulated by a bernoulli distribution. Which could look like this: $$
 P(n)=
 \begin{aligned}
 \begin{cases}
@@ -370,14 +368,13 @@ p &\text{for n=1}\\
 1-p &\text{for n=0}
 \end{cases}
 \end{aligned}
-$$
-Where n = is a success, or in this case, the presence of some irrigation. Conversely, when n=0, there is no irrigation. Marvelous!
+$$ Where n = is a success, or in this case, the presence of some irrigation. Conversely, when n=0, there is no irrigation. Marvelous!
 
 In the `zero_inflated_beta()`
 
 ### Default prior for `bernoulli`'s zi
 
-Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again (so `plogis()`. 
+Last but not least, the default prior assigned to the zi parameter is logistic(0, 1) AND a `logit` link is used again (so `plogis()`.
 
 ```{r}
 tibble(`Logistic(0, 1)` = rlogis(10000, 0, 1)) %>%  
@@ -396,11 +393,11 @@ Ok, so a specified logistic(0, 1) prior when transformed is basically, a uniform
 
 ### Selecting Priors for `bernoulli`'s zi
 
-But let's think a bit, zi represents the proportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of the data, this is the case because if there were more than 80% of the data points with some value of irrigation, then the data would not really be zero inflated. 
+But let's think a bit, zi represents the proportion of 0/non-zero in the data. So, based on the fact that the data is very zero inflated, let's postulate that the proportion of values that are non zero and non negative (aka those that have irrigation) is no more than perhaps 80% of the data, this is the case because if there were more than 80% of the data points with some value of irrigation, then the data would not really be zero inflated.
 
 So, extending this, I expect zi to equal 0.2 or greater.
 
-But at the same time I am aware that the data cannot be more than, perhaps, 80% zeros. So zi will probably be 0.8 or lower. So we could say that the range of zi should be (lets be even more generous) $0.15 < zi < 0.85$. Lets see if we can find a prior that acts as such. 
+But at the same time I am aware that the data cannot be more than, perhaps, 80% zeros. So zi will probably be 0.8 or lower. So we could say that the range of zi should be (lets be even more generous) $0.15 < zi < 0.85$. Lets see if we can find a prior that acts as such.
 
 ```{r}
 tibble(`Logistic(0,0.75)` = rlogis(10000, 0, 0.75)) %>%  
@@ -415,8 +412,7 @@ tibble(`Logistic(0,0.75)` = rlogis(10000, 0, 0.75)) %>%
   ggtitle("Selected zi Prior - Logistic(0, 0.75)")
 ```
 
-
-We can keep the logistic but just make it a bit less uniform on the parameter space. This follows the assumptions laid out above, where zi is less likely to occupy extreme values (0 or 1). This seems suitable. 
+We can keep the logistic but just make it a bit less uniform on the parameter space. This follows the assumptions laid out above, where zi is less likely to occupy extreme values (0 or 1). This seems suitable.
 
 Side note: A $N(0,1)$ would also work.
 
@@ -433,16 +429,13 @@ tibble(`Normal(0,1)` = rnorm(10000, 0, 1)) %>%
   ggtitle("zi Prior - Normal(0,1)")
 ```
 
+## The Slope (`b_`) Paramaters
 
+Recall that the slope parameters (`b_`) are given a default flat prior by brms. Which is about as improper and non descriptive as you can get!
 
-## The Slope (`b_`) Paramaters 
+Ok, thinking about the transformation of the data that has been done.... in the outcome scale the majority of predictors are centered around 0 with majority of the data encapsulated between -1 and 1 (because we divided by two sd instead of one). These `b_` (fixed effect) parameters receive a `logit` transformation (I think so..) so lets work with that. We need a prior that when transformed (via the `invlogit`) has a normal distribution centered on one with a spread from -1 to 1.
 
-Recall that the slope parameters (`b_`) are given a default flat prior by brms. Which is about as improper and non descriptive as you can get! 
-
-Ok, thinking about the transformation of the data that has been done.... in the outcome scale the majority of predictors are centered around 0 with majority of the data encapsulated between -1 and 1 (because we divided by two sd instead of one). These `b_` (fixed effect) parameters receive a `logit` transformation (I think so..) so lets work with that. We need a prior that when transformed (via the `invlogit`) has a normal distribution centered on one with a spread from -1 to 1. 
-
-
-But thinking more about this, the `logit` will always transform things so that they are between 0 and 1. Should the centering of the data be changed? Is it not helpful to center things on 0? Would centering things on 0.5 be better? Need to think more about this. However Paul Bürkner had some helpful [advice](https://github.com/paul-buerkner/brms/issues/36#issuecomment-175318551): set the slope priors incredibly wide, use a $N(0,10$ to just generally shift the coeff away from the extreme values which are less likely. 
+But thinking more about this, the `logit` will always transform things so that they are between 0 and 1. Should the centering of the data be changed? Is it not helpful to center things on 0? Would centering things on 0.5 be better? Need to think more about this. However Paul Bürkner had some helpful [advice](https://github.com/paul-buerkner/brms/issues/36#issuecomment-175318551): set the slope priors incredibly wide, use a $N(0,10$ to just generally shift the coeff away from the extreme values which are less likely.
 
 ```{r}
 tibble(`Normal(0,10)` = rnorm(10000, 0, 10)) %>%  
@@ -474,22 +467,18 @@ tibble(`Normal(0,1)` = rnorm(10000, 0, 1)) %>%
 
 Looks great.
 
-***
+------------------------------------------------------------------------
 
 ## Summary of Chosen Priors
 
-Just a reminder that the chosen priors are: 
+Just a reminder that the chosen priors are:
 
-- one for the `beta` Intercept of the model - $N(-3,2)$  
-- one for the dispersion coeff of the `beta`, phi - $student_t(3, 0, 2.5)$ or $N(-1,2)$  
-- one for the intercept of the zero inflated probability, zi - $logistic(0, 0.75)$  
-- one for the `b` slope parameters - $N(0,1)$
-
+-   one for the `beta` Intercept of the model - $N(-3,2)$\
+-   one for the dispersion coeff of the `beta`, phi - $student_t(3, 0, 2.5)$ or $N(-1,2)$\
+-   one for the intercept of the zero inflated probability, zi - $logistic(0, 0.75)$\
+-   one for the `b` slope parameters - $N(0,1)$
 
 # Moment of Truth: Running the Model
-
-
-
 
 ```{r}
 cl_zi_prior_spec_bf <-bf(
@@ -520,6 +509,7 @@ cl_zi_prior_spec <-
 print(cl_zi_prior_spec)
 
 ```
+
 ```{r}
 
 posterior_samples(cl_zi_prior_spec, pars = "b_")[,1:8] %>% 
@@ -532,7 +522,7 @@ posterior_samples(cl_zi_prior_spec, pars = "b_")[,1:8] %>%
   kable(digits = 2) 
 ```
 
-Now must interpret here... but perhaps we end this markdown here. 
+Now must interpret here... but perhaps we end this markdown here.
 
 ```{r}
 conditional_effects(cl_zi_prior_spec)
@@ -542,7 +532,4 @@ conditional_effects(cl_zi_prior_spec)
 pp_check(cl_zi_prior_spec)
 ```
 
-
-And a little `pp_check()` to finish. 
-
-
+And a little `pp_check()` to finish.

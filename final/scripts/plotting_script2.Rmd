@@ -31,7 +31,7 @@ fixef <- as.data.frame(fixef(`165aa_5yronlyISO_notimeserieszi`, groups="ISO", pr
 ranef <- as.data.frame(ranef(`165aa_5yronlyISO_notimeserieszi`, groups="ISO", probs = 0.5))%>% exp()
 
 #combined
-coefs <- as.data.frame(coef(`165aa_5yronlyISO_notimeserieszi`, groups="ISO", probs = 0.5))%>% exp()
+coefs <- as.data.frame(coef(`165aa_5yronlyISO_notimeserieszi`, groups="ISO", probs = 0.5)) %>% inv_logit_scaled()
 
 ### Model checking plots. Posterior predict. 
 pp_check(`165aa_5yronlyISO_notimeserieszi`, ndraws = 100)
@@ -40,6 +40,23 @@ pp_check(`165aa_5yronlyISO_notimeserieszi`, ndraws = 100)
 pp_check(composite_ISO, type = "ecdf_overlay", ndraws = 100)
 
 ```
+
+```{r}
+posterior_samples(model, pars = "b_") %>% 
+  mutate(across(.cols = starts_with("b_phi"), exp)) %>% 
+  mutate(across(.cols = c(- starts_with("b_phi")), plogis)) %>% 
+  posterior_summary() %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Parameter")
+```
+
+```{r}
+coef(`165aa_5yronlyISO_notimeserieszi`, robust = T)$ISO[, , ] %>% 
+  as_tibble() %>%
+  mutate(post_mdn = inv_logit_scaled(everything()))
+```
+
+
 
 # Regional Country level plots mu
 
@@ -75,7 +92,42 @@ cond_notimeserieszi_mu_ddregime <- aei_nocrop_samp165aa_5yr %>%
          Countryname = as.factor(Countryname)) %>% 
   left_join(cond_notimeserieszi_mu$`yearcount:DD.regime`, ., by = "ISO")
 
+
+
+cond_notimeserieszi_mu_precip_only <- aei_nocrop_samp165aa_5yr %>% 
+  dplyr::select(ISO, eight_regions, Countryname) %>% 
+  mutate(eight_regions = as.factor(eight_regions), 
+         Countryname = as.factor(Countryname)) %>% 
+  left_join(cond_notimeserieszi_mu$precip, ., by = "ISO")
+
+cond_notimeserieszi_mu_rugged_only <- aei_nocrop_samp165aa_5yr %>% 
+  dplyr::select(ISO, eight_regions, Countryname) %>% 
+  mutate(eight_regions = as.factor(eight_regions), 
+         Countryname = as.factor(Countryname)) %>% 
+  left_join(cond_notimeserieszi_mu$rugged, ., by = "ISO")
+
+cond_notimeserieszi_mu_gdppc_only <- aei_nocrop_samp165aa_5yr %>% 
+  dplyr::select(ISO, eight_regions, Countryname) %>% 
+  mutate(eight_regions = as.factor(eight_regions), 
+         Countryname = as.factor(Countryname)) %>% 
+  left_join(cond_notimeserieszi_mu$gdppc, ., by = "ISO")
+
+cond_notimeserieszi_mu_popdens_only <- aei_nocrop_samp165aa_5yr %>% 
+  dplyr::select(ISO, eight_regions, Countryname) %>% 
+  mutate(eight_regions = as.factor(eight_regions), 
+         Countryname = as.factor(Countryname)) %>% 
+  left_join(cond_notimeserieszi_mu$popdens, ., by = "ISO")
+
+cond_notimeserieszi_mu_ddregime_only <- aei_nocrop_samp165aa_5yr %>% 
+  dplyr::select(ISO, eight_regions, Countryname) %>% 
+  mutate(eight_regions = as.factor(eight_regions), 
+         Countryname = as.factor(Countryname)) %>% 
+  left_join(cond_notimeserieszi_mu$DD.regime, ., by = "ISO")
+
+
 ```
+
+#interactions
 
 ```{r condeffs_mu_plots_precip}
 
@@ -378,6 +430,319 @@ cond_notimeserieszi_mu_ddregime %>%
   geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__, group = effect2__), alpha = 0.3, color = NA) + 
   geom_line() +
   facet_wrap(~Countryname, ncol = 3, scales = "free_y")
+
+
+```
+
+#individual predictors
+
+
+```{r condeffs_mu_plots_precip}
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "asia_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "east_asia_pacific") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "america_north") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "america_south") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "africa_sub_saharan") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "africa_north") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "europe_east") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_precip_only %>% 
+  subset(eight_regions == "europe_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+```
+
+```{r condeffs_mu_plots_rugged}
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "asia_west") %>% 
+   ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "east_asia_pacific") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "america_north") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "america_south") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "africa_sub_saharan") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "africa_north") %>% 
+   ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "europe_east") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_rugged_only %>% 
+  subset(eight_regions == "europe_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3, scales = "free_y")
+
+
+```
+
+```{r condeffs_mu_plots_gdppc}
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "asia_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "east_asia_pacific") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "america_north") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "america_south") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "africa_sub_saharan") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "africa_north") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "europe_east") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_gdppc_only %>% 
+  subset(eight_regions == "europe_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+
+```
+
+```{r condeffs_mu_plots_popdens}
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "asia_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "east_asia_pacific") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "america_north") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "america_south") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "africa_sub_saharan") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "africa_north") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "europe_east") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_popdens_only %>% 
+  subset(eight_regions == "europe_west") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_ribbon(aes(ymin = lower__, ymax = upper__,x= effect1__), alpha = 0.3, color = NA) + 
+  geom_line() +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+```
+
+```{r condeffs_mu_plots_ddregime}
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "asia_west") %>% 
+  ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "east_asia_pacific") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "america_north") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "america_south") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "africa_sub_saharan") %>% 
+ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "africa_north") %>% 
+ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "europe_east") %>% 
+ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
+
+cond_notimeserieszi_mu_ddregime_only %>% 
+  subset(eight_regions == "europe_west") %>% 
+ ggplot(aes(x=effect1__, y=estimate__)) +
+  geom_errorbar(aes(y=estimate__, ymin = lower__, ymax = upper__,x= effect1__, group = effect1__)) +
+  facet_wrap(~Countryname, ncol = 3)
 
 
 ```
@@ -808,20 +1173,32 @@ Countrynames <-
 
 #posterior draws to construct mu
 
-  `165aa_5yronlyISO_notimeserieszi` %>%
-  spread_draws(b_Intercept, r_ISO[ISO,]) %>%
-  # add the grand mean to the group-specific deviations
-  mutate(mu = b_Intercept + r_ISO) %>%
-  mutate(mu = exp(mu)) %>%
-  ungroup() %>% 
-  left_join(., Countrynames, by = "ISO") %>% 
-  ggplot(aes(x = mu, y = reorder(Countryname, mu))) +
-  geom_vline(xintercept = exp(fixef(`165aa_5yronlyISO_notimeserieszi`)[1, 1]), color = "#839496", size = 1) +
-  geom_vline(xintercept = exp(fixef(`165aa_5yronlyISO_notimeserieszi`)[1, 3:4]), color = "#839496", linetype = 2) +
-  geom_halfeyeh(.width = .5, size = 2/3, fill = "#859900") +
-  xlim(0,0.10) + 
-    facet_grid(~eight_regions)
 
+  composite_reg %>%
+  spread_draws(b_Intercept, r_eight_regions[eight_regions,]) %>%
+  # add the grand mean to the group-specific deviations
+  mutate(mu = b_Intercept + r_eight_regions) %>%
+  mutate(mu = plogis(mu)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = mu, y = reorder(eight_regions, mu))) +
+  geom_vline(xintercept = plogis(fixef(composite_reg)[1, 1]), color = "#839496", size = 1) +
+  geom_vline(xintercept = plogis(fixef(composite_reg)[1, 3:4]), color = "#839496", linetype = 2) +
+  geom_halfeyeh(.width = .5, size = 2/3, fill = "#859900") +
+  xlim(0,0.10) 
+
+  
+  
+composite_reg %>%
+    spread_draws(b_zi_Intercept, r_eight_regions__zi[eight_regions,]) %>%
+    # add the grand mean to the group-specific deviations
+    mutate(zi = b_zi_Intercept + r_eight_regions__zi) %>%
+    dplyr::mutate(zi = plogis(zi)) %>% 
+    ungroup() %>% 
+    ggplot(aes(x = zi, y = reorder(eight_regions, zi))) +
+    geom_vline(xintercept = plogis(fixef(composite_reg)[13, 1]), color = "#839496", size = 1) +
+    geom_vline(xintercept = plogis(fixef(composite_reg)[13, 3:4]), color = "#839496", linetype = 2) +
+    geom_halfeyeh(.width = .5, size = 2/3, fill = "#859900")   
+  
   
 ggsave(mus, file = "/Volumes/RachelExternal2/Thesis/BayesMultilevelMods/figure/longplot.png", height = 20, units = "in")
 
